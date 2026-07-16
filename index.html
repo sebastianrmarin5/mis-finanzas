@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mis Finanzas</title>
+<style>
+  :root{
+    color-scheme: light;
+    --bg:#ffffff; --page-bg:#fafafa; --card:#ffffff; --text:#0b0b10; --muted:#6b7280;
+    --border:#e9e9ee; --purple:#7c6cf0; --purple-soft:#efeafe; --blue:#4f8fe0; --blue-soft:#e4eefc;
+    --yellow:#d8b93a; --yellow-soft:#fbf6d9; --gray-soft:#f1f1f4; --green:#059669; --green-soft:#e7f7f1;
+    --red:#dc2626; --red-soft:#fdeceb; --ink:#0d0d12; --radius:18px;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--page-bg); color:var(--text); padding:28px 30px 60px;}
+  h1,h3{margin:0;}
+  .eyebrow{font-family:var(--mono); font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--purple); font-weight:700;}
+  .page-head{margin-bottom:24px;}
+  .page-head h1{font-size:28px; font-weight:800; letter-spacing:-0.01em; margin-top:6px;}
+  .page-head .sub{color:var(--muted); font-size:13px; margin-top:6px;}
+  .status-badge{font-size:11px; font-family:var(--mono); color:var(--muted); background:var(--card); border:1px solid var(--border); padding:6px 12px; border-radius:20px; display:inline-block; margin-top:12px;}
+  .status-badge.err{color:var(--red); border-color:#f6c6c2;}
+  .alert{background:var(--red-soft); border:1px solid #f6c6c2; color:#8a1f16; padding:14px 18px; border-radius:14px; margin-bottom:18px; font-size:13.5px; line-height:1.5;}
+  .alert strong{color:#7a1a12;}
+  .layout{display:grid; grid-template-columns:230px 1fr; gap:20px; align-items:start;}
+  @media(max-width:860px){.layout{grid-template-columns:1fr;}}
+  .side-nav{display:flex; flex-direction:column; gap:9px; position:sticky; top:20px;}
+  .nav-item{display:flex; justify-content:space-between; align-items:center; gap:8px; padding:13px 15px; border-radius:14px; background:var(--gray-soft); border:1px solid transparent; cursor:pointer; text-align:left; font:inherit; color:var(--text); width:100%;}
+  .nav-item .dot{width:8px; height:8px; border-radius:50%; margin-right:8px; flex:none; display:inline-block;}
+  .nav-item .label{font-weight:700; font-size:13.5px;}
+  .nav-item .sub{font-family:var(--mono); font-size:9px; letter-spacing:.08em; color:var(--muted); text-transform:uppercase; display:block; margin-top:3px;}
+  .nav-item.active{border-color:rgba(0,0,0,.06); box-shadow:0 1px 2px rgba(20,20,43,.04);}
+  .content-pane{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:24px; box-shadow:0 1px 2px rgba(20,20,43,0.04); min-height:400px;}
+  .tab-content{display:none;} .tab-content.active{display:block;}
+  .tab-title{font-size:19px; font-weight:800; margin-bottom:4px;}
+  .tab-desc{color:var(--muted); font-size:12.5px; margin-bottom:18px;}
+  .kpi-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:20px;}
+  @media(max-width:650px){.kpi-grid{grid-template-columns:1fr 1fr;}}
+  .kpi{background:var(--ink); color:#fff; border-radius:14px; padding:15px 17px;}
+  .kpi .label{font-family:var(--mono); font-size:9.5px; letter-spacing:.07em; text-transform:uppercase; color:#9d9dae;}
+  .kpi .value{font-size:19px; font-weight:800; margin-top:7px;}
+  .kpi .hint{font-size:10.5px; color:#8f8fa3; margin-top:4px;}
+  .kpi.negative .value{color:#ff8080;} .kpi.positive .value{color:#6ee7b7;}
+  .bolsillos-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:15px;}
+  .bolsillo-card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:17px;}
+  .bolsillo-card .top-row{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;}
+  .bolsillo-card h3{font-size:15.5px; font-weight:800;}
+  .bolsillo-meta{font-size:11px; color:var(--muted); margin-top:3px;}
+  .tag{font-size:10px; font-weight:700; padding:3px 9px; border-radius:20px; font-family:var(--mono); letter-spacing:.03em;}
+  .tag.red{background:var(--red-soft); color:var(--red);} .tag.green{background:var(--green-soft); color:var(--green);} .tag.gray{background:var(--gray-soft); color:var(--muted);}
+  .bar-track{height:7px; background:#eef0f4; border-radius:6px; overflow:hidden; margin-top:8px;}
+  .bar-fill{height:100%; background:var(--purple);} .bar-fill.over{background:var(--red);}
+  .bar-labels{display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-top:6px;}
+  .diff-line{display:flex; justify-content:space-between; align-items:center; margin-top:11px; padding-top:11px; border-top:1px dashed var(--border); font-size:12.5px;}
+  .diff-line .diff-value{font-weight:800; font-size:14.5px;}
+  .diff-value.neg{color:var(--red);} .diff-value.pos{color:var(--green);}
+  details{margin-top:9px;} summary{cursor:pointer; font-size:12px; color:var(--purple); font-weight:700; outline:none;}
+  .mov-list{list-style:none; margin:8px 0 0; padding:0; font-size:12px;}
+  .mov-list li{display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #f2f3f6; gap:8px;}
+  .mov-list li:last-child{border-bottom:none;}
+  .mov-list .desc{color:var(--muted);} .mov-list .amt{flex:none;}
+  .chk-label{display:flex; gap:7px; align-items:center; cursor:pointer; flex:1;}
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th,td{text-align:left; padding:8px 9px; border-bottom:1px solid var(--border);}
+  th{color:var(--muted); font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:.05em; font-family:var(--mono);}
+  td.num, th.num{text-align:right; font-variant-numeric:tabular-nums;}
+  tr.sueldo-row td{background:var(--purple-soft); color:var(--purple); font-weight:800;}
+  tr.restante-row td{background:var(--green-soft); color:var(--green); font-weight:800; border-top:2px solid var(--green); border-bottom:none;}
+  .two-col{display:grid; grid-template-columns:1fr 1fr; gap:20px;} @media(max-width:600px){.two-col{grid-template-columns:1fr;}}
+  .subpanel{background:var(--gray-soft); border-radius:14px; padding:16px;}
+  .servicios-col h4{font-size:10.5px; margin:0 0 8px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; font-family:var(--mono);}
+  .servicios-col ul{list-style:none; margin:0; padding:0; font-size:12.5px;}
+  .servicios-col li{display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #e7e8ee;}
+  .servicios-col li.tot{font-weight:800; border-bottom:none; margin-top:4px;}
+  .inline-num{width:90px; text-align:right; border:1px solid var(--border); border-radius:7px; padding:4px 7px; font-size:12.5px; font-variant-numeric:tabular-nums; background:#fff; color:var(--text);}
+  .inline-num:focus{outline:2px solid var(--purple); outline-offset:1px;}
+  .lic-total-banner{display:flex; justify-content:space-between; align-items:center; background:var(--ink); color:#fff; border-radius:14px; padding:15px 18px; margin-top:14px;}
+  .lic-total-banner .amt{font-size:20px; font-weight:800; color:#6ee7b7;}
+  .lic-total-banner .note{font-size:11px; color:#9d9dae; margin-top:2px;}
+  form.reg-form{display:grid; grid-template-columns:repeat(6,1fr); gap:11px; align-items:end;}
+  @media(max-width:820px){form.reg-form{grid-template-columns:1fr 1fr;}}
+  form.reg-form label{font-size:10.5px; color:var(--muted); font-weight:700; display:block; margin-bottom:5px; font-family:var(--mono); text-transform:uppercase; letter-spacing:.04em;}
+  form.reg-form select, form.reg-form input{width:100%; padding:8px 9px; border:1px solid var(--border); border-radius:9px; font-size:13px; background:#fff; color:var(--text);}
+  .pill-btn{background:var(--purple); color:#fff; border:none; padding:10px 18px; border-radius:999px; font-size:13px; font-weight:700; cursor:pointer;}
+  .pill-btn:disabled{opacity:.5; cursor:default;}
+  .checkbox-row{display:flex; align-items:center; gap:8px; grid-column:span 6;} @media(max-width:820px){.checkbox-row{grid-column:span 2;}}
+  form.reg-form label.chk-label{display:flex; align-items:center; gap:7px; font-size:12px; color:var(--text); font-weight:600; text-transform:none; font-family:inherit; letter-spacing:normal; margin-bottom:0; cursor:pointer;}
+  .local-list{margin-top:16px;}
+  .local-item{display:flex; justify-content:space-between; align-items:center; padding:8px 11px; border:1px solid var(--border); border-radius:10px; margin-bottom:7px; font-size:12px; background:#fafbff;}
+  .local-item .del{color:var(--red); cursor:pointer; font-size:11px; font-weight:700; background:none; border:none;}
+  .empty-hint{color:var(--muted); font-size:12px;}
+  .sync-note{background:var(--green-soft); color:#0a6b4c; border-radius:12px; padding:11px 15px; font-size:11.5px; margin-bottom:16px; line-height:1.5;}
+  footer{margin-top:26px; font-size:11px; color:var(--muted); text-align:center;}
+  .loading{padding:40px; text-align:center; color:var(--muted); font-size:13px;}
+
+  #pinGate{position:fixed; inset:0; z-index:9999; background:var(--page-bg); display:flex; align-items:center; justify-content:center; padding:20px;}
+  #pinGate .pin-card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:30px 28px; width:100%; max-width:320px; box-shadow:0 4px 18px rgba(20,20,43,.08);}
+  #pinGate h2{font-size:17px; font-weight:800; margin:0 0 6px;}
+  #pinGate p{font-size:12.5px; color:var(--muted); margin:0 0 18px;}
+  #pinGate input{width:100%; padding:11px 13px; border:1px solid var(--border); border-radius:10px; font-size:16px; letter-spacing:.08em; text-align:center; margin-bottom:12px;}
+  #pinGate input:focus{outline:2px solid var(--purple); outline-offset:1px;}
+  #pinGate .pill-btn{width:100%;}
+  #pinGate .pin-error{color:var(--red); font-size:12px; margin-top:10px; min-height:16px; text-align:center;}
+</style>
+</head>
+<body>
+
+<div id="pinGate">
+  <div class="pin-card">
+    <h2>Mis Finanzas</h2>
+    <p>Ingresá el PIN para ver y actualizar tus datos.</p>
+    <form id="pinForm">
+      <input type="password" inputmode="numeric" id="pinInput" placeholder="PIN" autocomplete="off">
+      <button type="submit" class="pill-btn" id="pinSubmitBtn">Entrar</button>
+      <div class="pin-error" id="pinError"></div>
+    </form>
+  </div>
+</div>
+
+<div class="page-head">
+  <div class="eyebrow">MIS FINANZAS</div>
+  <h1>Todo tu dinero, en un solo lugar.</h1>
+  <div class="sub">Sincronizado con Airtable — se ve igual en todos tus dispositivos.</div>
+  <div class="status-badge" id="statusBadge">Cargando…</div>
+</div>
+
+<div id="globalError"></div>
+
+<div class="layout">
+  <nav class="side-nav" id="sideNav">
+    <button class="nav-item" data-tab="bolsillos"><div><span class="label"><span class="dot" style="background:var(--purple)"></span>Bolsillos</span><span class="sub">Tarjetas</span></div></button>
+    <button class="nav-item" data-tab="gastos"><div><span class="label"><span class="dot" style="background:var(--blue)"></span>Gastos fijos</span><span class="sub">Quincenal</span></div></button>
+    <button class="nav-item" data-tab="licencias"><div><span class="label"><span class="dot" style="background:var(--yellow)"></span>Licencias</span><span class="sub">Negocio</span></div></button>
+  </nav>
+
+  <div class="content-pane" id="contentPane" style="display:none;">
+    <div class="tab-content" id="tab-bolsillos">
+      <div class="eyebrow">BOLSILLOS · TARJETAS</div>
+      <div class="tab-title">Tus 4 bolsillos, al día.</div>
+      <div class="tab-desc">Saldo actual, corte, pago y movimientos de cada tarjeta.</div>
+      <div id="alertBox"></div>
+      <div class="kpi-grid" id="kpiGrid"><div class="loading">Cargando…</div></div>
+      <div class="bolsillos-grid" id="bolsillosGrid"></div>
+
+      <div class="tab-title" style="font-size:15px; margin-top:26px; margin-bottom:4px;">Registrar movimiento</div>
+      <div class="tab-desc">Agrega un gasto o un ingreso. Si el dinero de una entrada ya está en el bolsillo, márcalo para que se sume al saldo de una vez.</div>
+      <div class="sync-note">Esto escribe directo en tu base de Airtable — se ve igual desde el celular y cualquier computador donde abras este dashboard.</div>
+      <form class="reg-form" id="regForm">
+        <div><label>Bolsillo</label><select id="f_bolsillo"><option value="TC_S">TC_S</option><option value="TC_D">TC_D</option><option value="TC_L">TC_L</option><option value="TC_S+">TC_S+</option></select></div>
+        <div><label>Tipo</label><select id="f_tipo"><option value="salida">Gasto (salida)</option><option value="entrada">Ingreso (entrada)</option></select></div>
+        <div><label>Monto (COP)</label><input type="number" id="f_monto" placeholder="Ej: 50000" min="1"></div>
+        <div><label>Descripción</label><input type="text" id="f_desc" placeholder="Ej: gasolina"></div>
+        <div><label>Ciclo</label><select id="f_ciclo"><option value="actual">Actual</option><option value="proyectado">Próximo</option></select></div>
+        <div><button type="submit" class="pill-btn" id="submitBtn">Agregar</button></div>
+      </form>
+      <div class="checkbox-row" id="inmediatoRow" style="margin-top:12px;">
+        <label class="chk-label" for="f_inmediato"><input type="checkbox" id="f_inmediato"><span>Ya está en el bolsillo (cárgalo directo al saldo)</span></label>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-gastos">
+      <div class="eyebrow">GASTOS FIJOS · QUINCENAL</div>
+      <div class="tab-title">Lo que no cambia cada quincena.</div>
+      <div class="tab-desc">Categorías fijas, sueldo y lo que te queda libre.</div>
+      <div class="two-col">
+        <div class="subpanel"><table id="gastosFijosTable"></table></div>
+        <div class="subpanel">
+          <div class="tab-title" style="font-size:13.5px; margin-bottom:12px;">Servicios del hogar</div>
+          <div class="two-col" style="gap:14px;">
+            <div class="servicios-col"><h4>Casa</h4><ul id="serviciosCasa"></ul></div>
+            <div class="servicios-col"><h4>Padres</h4><ul id="serviciosPadres"></ul></div>
+          </div>
+          <p class="empty-hint" id="servHint" style="margin-top:10px;"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-licencias">
+      <div class="eyebrow">LICENCIAS · NEGOCIO</div>
+      <div class="tab-title">O365 y Gsuite que revendes.</div>
+      <div class="tab-desc">Marca cada cliente cuando te pague — la ganancia disponible se actualiza sola.</div>
+      <table id="licenciasTable"></table>
+      <div class="lic-total-banner">
+        <div><div class="note">Disponible este mes</div><div class="amt" id="licTotal"></div></div>
+        <div class="note" id="licNota" style="text-align:right; max-width:250px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>Datos sincronizados en vivo desde tu base de Airtable "Mis Finanzas".</footer>
+
+<script>
+// ⚠️ Reemplazá esta URL por la de tu propio Worker una vez que lo despliegues en Cloudflare.
+// La obtenés en el dashboard de Cloudflare, algo como: https://mis-finanzas-api.tu-usuario.workers.dev
+const WORKER_URL = 'https://mis-finanzas-api.sebastianrmarin5.workers.dev/';
+const BASE_ID = 'applb9F664ngtZEWI';
+const T = { bols:'tblgJwqO9ZDHlrcyy', mov:'tblX4joy1nITOL9ds', lic:'tblbbNWqXtzu932t6', gf:'tblFHJZsnMz7Cc0Uf', sh:'tblRC543SvM5g5Rp2' };
+const F = {
+  bols:{name:'fldfvxJeUKt2MhmcX', limite:'fldstytU8vDJlp4iA', corteDia:'fldOEnwAVsaoMTOEY', pagoDia:'fldmLxXnhMytcJi3O', cierre:'fldMHxiAerS3STZNH', pago:'fldTYA0rhJqdTaQNR', saldo:'fldhXViPsP5HmoJwT', cierreProy:'fld99AO3GZkxaamaH', pagoProy:'fldb6Ret0r5Qe2HFM'},
+  mov:{desc:'fldJxn0cA8JdG1ye0', bolsillo:'fldVjcwwy1V474aen', tipo:'fldfYt60dqMb415KP', monto:'fld10zoVkHAIXaQbn', origen:'fldMJG2txgHmiZRAT', estado:'fldPNA6GQWh9sZ5yt', fecha:'fld4O9VeJkQjUvYVQ', ciclo:'fldAJjfvg4BloSuJK'},
+  lic:{cliente:'fldfTBCv8vBppcZiP', diaPago:'fldK0ptMmYG9VqAxv', ventaBruta:'fld3Bx5gufioQkfE7', retencion:'fld3ijuH3WMN32Ip6', ventaNeta:'fldHGfqzC1F3cEckm', costo:'fldjI6rcC5t29K6NW', ganancia:'fldy8l3Jxmp6DCIla', pagado:'fldukNsXNp9YkC7lA', mesCheck:'fldprUlXBX57cD1jw'},
+  gf:{cat:'fldiBWV9uHPZwOR0n', q15:'fldJPqgT0l3jOpy7u', q30:'fldViFblXjPocvV8O'},
+  sh:{servicio:'fldYKOD2R3TXGT84c', grupo:'fldPh1CnuAk4c4GFh', valor:'fldP1RPWU3eAyLK4i'}
+};
+
+// PIN guardado en memoria durante la sesión (y en sessionStorage para no repetirlo si recargás la página,
+// se borra solo al cerrar la pestaña).
+let PIN = sessionStorage.getItem('mf_pin') || '';
+
+async function callTool(name, args){
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ pin: PIN, action: name, args })
+  });
+  let data;
+  try{ data = await res.json(); } catch{ throw new Error('Respuesta inválida del servidor.'); }
+  if(res.status === 401) throw new Error('PIN_INVALIDO');
+  if(!res.ok || data.error) throw new Error(data.error || `Error del servidor (${res.status})`);
+  return data.result;
+}
+const selName = v => (v && typeof v === 'object') ? v.name : v;
+const fmt = n => n===null||n===undefined ? "—" : new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(n);
+const today = new Date();
+function daysUntil(dateStr){ if(!dateStr) return null; const d = new Date(dateStr+"T00:00:00"); return Math.ceil((d-today)/86400000); }
+function fmtDate(dateStr, opts){ return new Date(dateStr+"T00:00:00").toLocaleDateString('es-CO', opts); }
+function monthKey(){ return `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`; }
+
+let STATE = null; // { bolsillos:[], movimientos:[], licencias:[], gastosFijos:[], serviciosHogar:[] }
+
+async function loadAll(){
+  const [bolsRes, movRes, licRes, gfRes, shRes] = await Promise.all([
+    callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.bols}),
+    callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.mov, pageSize:1000}),
+    callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.lic}),
+    callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.gf}),
+    callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.sh}),
+  ]);
+  STATE = {
+    bolsillos: bolsRes.records.map(r=>({id:r.id, ...Object.fromEntries(Object.entries(F.bols).map(([k,fid])=>[k, r.cellValuesByFieldId[fid]]))})),
+    movimientos: movRes.records.map(r=>({id:r.id, desc:r.cellValuesByFieldId[F.mov.desc], bolsillo:r.cellValuesByFieldId[F.mov.bolsillo], tipo:selName(r.cellValuesByFieldId[F.mov.tipo]), monto:r.cellValuesByFieldId[F.mov.monto]||0, origen:selName(r.cellValuesByFieldId[F.mov.origen]), estado:selName(r.cellValuesByFieldId[F.mov.estado]), ciclo:selName(r.cellValuesByFieldId[F.mov.ciclo])||'actual'})),
+    licencias: licRes.records.map(r=>({id:r.id, cliente:r.cellValuesByFieldId[F.lic.cliente], diaPago:r.cellValuesByFieldId[F.lic.diaPago], ventaBruta:r.cellValuesByFieldId[F.lic.ventaBruta]||0, retencion:r.cellValuesByFieldId[F.lic.retencion]||0, ventaNeta:r.cellValuesByFieldId[F.lic.ventaNeta]||0, costo:r.cellValuesByFieldId[F.lic.costo]||0, ganancia:r.cellValuesByFieldId[F.lic.ganancia]||0, pagado:!!r.cellValuesByFieldId[F.lic.pagado], mesCheck:r.cellValuesByFieldId[F.lic.mesCheck]||''})),
+    gastosFijos: gfRes.records.map(r=>({id:r.id, cat:r.cellValuesByFieldId[F.gf.cat], q15:r.cellValuesByFieldId[F.gf.q15]||0, q30:r.cellValuesByFieldId[F.gf.q30]||0})),
+    serviciosHogar: shRes.records.map(r=>({id:r.id, servicio:r.cellValuesByFieldId[F.sh.servicio], grupo:selName(r.cellValuesByFieldId[F.sh.grupo]), valor:r.cellValuesByFieldId[F.sh.valor]||0})),
+  };
+  const BOLSILLO_ORDER = ['TC_S','TC_L','TC_D','TC_S+'];
+  STATE.bolsillos.sort((a,b)=>BOLSILLO_ORDER.indexOf(a.name)-BOLSILLO_ORDER.indexOf(b.name));
+}
+
+function computeCiclo(movs, saldoBase){
+  const entradaMovs = movs.filter(m=>m.tipo==='entrada');
+  const salidaMovs = movs.filter(m=>m.tipo==='salida');
+  const entTotal = (saldoBase||0) + entradaMovs.reduce((s,m)=>s+m.monto,0);
+  const salTotal = salidaMovs.reduce((s,m)=>s+m.monto,0);
+  const saldoAjustado = (saldoBase||0) + entradaMovs.filter(m=>m.estado==='en_saldo').reduce((s,m)=>s+m.monto,0);
+  return { entTotal, salTotal, diff:entTotal-salTotal, saldo:saldoAjustado,
+    pendientes: entradaMovs.filter(m=>m.estado==='pendiente'),
+    salidas: salidaMovs };
+}
+function computeBolsillo(b){
+  // b.saldo es el saldo base FIJO importado del Excel (nunca se modifica) y solo aplica al ciclo actual.
+  // El ciclo proyectado (proximo mes) no tiene saldo base propio, arranca en 0.
+  const movsActual = STATE.movimientos.filter(m=>m.bolsillo===b.name && m.ciclo==='actual');
+  const movsProy = STATE.movimientos.filter(m=>m.bolsillo===b.name && m.ciclo==='proyectado');
+  return { actual: computeCiclo(movsActual, b.saldo||0), proyectado: computeCiclo(movsProy, 0) };
+}
+function computeLicenciasDisponible(){
+  const mk = monthKey();
+  const pagadosEsteMes = STATE.licencias.filter(c=>c.pagado && c.mesCheck===mk);
+  const disponible = pagadosEsteMes.reduce((s,c)=>s+c.ganancia,0);
+  const total = STATE.licencias.reduce((s,c)=>s+c.ganancia,0);
+  return {disponible, total, pagados:pagadosEsteMes.length, deTotal:STATE.licencias.length};
+}
+
+/* ============ TABS ============ */
+document.getElementById('sideNav').addEventListener('click', function(e){
+  const btn = e.target.closest('.nav-item'); if(!btn) return;
+  const pane = document.getElementById('contentPane');
+  const wasActive = btn.classList.contains('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  if(wasActive){
+    pane.style.display = 'none';
+  } else {
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    pane.style.display = '';
+  }
+});
+
+/* ============ WRITE ACTIONS ============ */
+async function withBusy(fn){
+  document.getElementById('statusBadge').textContent = 'Guardando…';
+  try{ await fn(); await loadAll(); renderAll(); document.getElementById('statusBadge').textContent = 'Sincronizado · ' + new Date().toLocaleTimeString('es-CO'); }
+  catch(err){ document.getElementById('statusBadge').textContent = 'Error al guardar'; document.getElementById('statusBadge').classList.add('err'); document.getElementById('globalError').innerHTML = `<div class="alert"><strong>No se pudo guardar:</strong> ${err.message}</div>`; }
+}
+
+async function marcarCobrado(movId){
+  await withBusy(async ()=>{
+    await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.mov, records:[{id:movId, fields:{[F.mov.estado]:'en_saldo'}}]});
+  });
+}
+
+async function toggleLicPagado(licId){
+  await withBusy(async ()=>{
+    const c = STATE.licencias.find(x=>x.id===licId);
+    const mk = monthKey();
+    const isPaidNow = c.pagado && c.mesCheck===mk;
+    if(isPaidNow){
+      await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.lic, records:[{id:licId, fields:{[F.lic.pagado]:false}}]});
+    } else {
+      await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.lic, records:[{id:licId, fields:{[F.lic.pagado]:true, [F.lic.mesCheck]:mk}}]});
+    }
+  });
+}
+
+async function updateServicioValor(recId, value){
+  const monto = parseFloat(value);
+  if(isNaN(monto) || monto<0) return;
+  await withBusy(async ()=>{
+    await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.sh, records:[{id:recId, fields:{[F.sh.valor]:monto}}]});
+  });
+}
+async function updateGastoFijo(recId, fieldKey, value){
+  const monto = parseFloat(value);
+  if(isNaN(monto) || monto<0) return;
+  await withBusy(async ()=>{
+    await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.gf, records:[{id:recId, fields:{[F.gf[fieldKey]]:monto}}]});
+  });
+}
+
+async function removeMovimiento(movId){
+  await withBusy(async ()=>{
+    await callTool('delete_records_for_table', {baseId:BASE_ID, tableId:T.mov, recordIds:[movId]});
+  });
+}
+
+document.getElementById('f_tipo').addEventListener('change', function(){
+  document.getElementById('inmediatoRow').style.display = this.value==='entrada' ? 'flex' : 'none';
+});
+
+document.getElementById('regForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  const bolsillo = document.getElementById('f_bolsillo').value;
+  const tipo = document.getElementById('f_tipo').value;
+  const monto = parseFloat(document.getElementById('f_monto').value);
+  const desc = document.getElementById('f_desc').value.trim() || "sin descripción";
+  const inmediato = tipo==='entrada' && document.getElementById('f_inmediato').checked;
+  const ciclo = document.getElementById('f_ciclo').value;
+  if(!monto || monto<=0){ alert('Ingresa un monto válido.'); return; }
+  const form = this;
+  withBusy(async ()=>{
+    const estado = tipo==='entrada' ? (inmediato ? 'en_saldo' : 'pendiente') : undefined;
+    const fields = {[F.mov.desc]:desc, [F.mov.bolsillo]:bolsillo, [F.mov.tipo]:tipo, [F.mov.monto]:monto, [F.mov.origen]:'agregado', [F.mov.fecha]:new Date().toISOString().slice(0,10), [F.mov.ciclo]:ciclo};
+    if(estado) fields[F.mov.estado] = estado;
+    await callTool('create_records_for_table', {baseId:BASE_ID, tableId:T.mov, records:[{fields}]});
+  });
+  form.reset();
+  document.getElementById('inmediatoRow').style.display = 'flex';
+});
+
+/* ============ RENDER ============ */
+function movList(items, cls){
+  if(!items.length) return `<p class="empty-hint">Sin movimientos.</p>`;
+  return `<ul class="mov-list ${cls}">${items.map(i=>`<li><span class="desc">${i.desc}${i.origen==='agregado'?' · agregado':''}</span><span class="amt" style="color:${cls==='entradas'?'var(--green)':'var(--red)'}">${fmt(i.monto)}</span></li>`).join('')}</ul>`;
+}
+
+function renderTop(){
+  const comps = STATE.bolsillos.map(b=>({b,c:computeBolsillo(b).actual}));
+  const totalBolsillos = comps.reduce((s,x)=>s+x.c.saldo,0);
+  const urgentes = comps.filter(x=>x.b.pago && x.c.diff<0).sort((a,b)=>daysUntil(a.b.pago)-daysUntil(b.b.pago));
+  const alertBox = document.getElementById('alertBox');
+  if(urgentes.length){
+    const u = urgentes[0]; const dias = daysUntil(u.b.pago);
+    alertBox.innerHTML = `<div class="alert"><strong>${u.b.name} necesita ${fmt(Math.abs(u.c.diff))}</strong> antes del pago del ${fmtDate(u.b.pago,{day:'numeric',month:'long'})} (en ${dias} días).</div>`;
+  } else alertBox.innerHTML = "";
+
+  const conFecha = comps.filter(x=>x.b.pago).sort((a,b)=>daysUntil(a.b.pago)-daysUntil(b.b.pago));
+  const minDias = conFecha.length ? daysUntil(conFecha[0].b.pago) : null;
+  const proxGroup = conFecha.filter(x=>daysUntil(x.b.pago)===minDias);
+  const proxValue = proxGroup.length
+    ? proxGroup.map(x=>`<span style="color:${x.c.diff<0?'#ff8080':'#6ee7b7'}">${x.b.name}</span>`).join(' · ') + ` · ${minDias}d`
+    : '—';
+  const proxHint = proxGroup.length ? fmtDate(proxGroup[0].b.pago,{day:'numeric',month:'long'}) : '';
+  const gfSueldo = STATE.gastosFijos.find(g=>g.cat==='Sueldo');
+  const kpis = [
+    {label:"Total en bolsillos", value:fmt(totalBolsillos), hint:"Suma del saldo débito de los 4 bolsillos", cls:""},
+    {label:"Próximo pago", value:proxValue, hint:proxHint, cls:""}
+  ];
+  document.getElementById('kpiGrid').innerHTML = kpis.map(k=>`<div class="kpi ${k.cls}"><div class="label">${k.label}</div><div class="value">${k.value}</div><div class="hint">${k.hint}</div></div>`).join('');
+}
+
+function cicloBox(c, label, hint){
+  const pct = c.entTotal>0 ? Math.min(100,(c.salTotal/c.entTotal)*100) : 0;
+  const over = c.diff<0;
+  return `
+    <div class="bolsillo-meta" style="margin-top:12px; font-weight:700; color:var(--text);">${label}${hint?` · ${hint}`:''}</div>
+    <div class="bar-labels"><span>Entradas ${fmt(c.entTotal)}</span><span>Salidas ${fmt(c.salTotal)}</span></div>
+    <div class="bar-track"><div class="bar-fill ${over?'over':''}" style="width:${pct}%"></div></div>
+    <div class="diff-line"><span>Saldo: ${fmt(c.saldo)}</span><span class="diff-value ${over?'neg':'pos'}">${over?'':'+'}${fmt(c.diff)}</span></div>
+    <details>
+      <summary>Ver movimientos (${c.pendientes.length} entradas pendientes / ${c.salidas.length} salidas)</summary>
+      <div class="two-col" style="gap:14px; margin-top:8px;">
+        <div>
+          <div class="bolsillo-meta" style="margin-bottom:4px;">ENTRADAS PENDIENTES</div>
+          ${c.pendientes.length===0 ? '<p class="empty-hint">Nada pendiente.</p>' : `<ul class="mov-list entradas">${c.pendientes.map(m=>`<li><label class="chk-label"><input type="checkbox" onchange="marcarCobrado('${m.id}')"><span class="desc">${m.desc}${m.origen==='agregado'?' · agregado':''}</span></label><span class="amt" style="color:var(--green)">${fmt(m.monto)}</span></li>`).join('')}</ul>`}
+        </div>
+        <div>
+          <div class="bolsillo-meta" style="margin-bottom:4px;">SALIDAS</div>
+          ${movList(c.salidas,'salidas')}
+        </div>
+      </div>
+    </details>`;
+}
+
+function renderBolsillos(){
+  document.getElementById('bolsillosGrid').innerHTML = STATE.bolsillos.map(b=>{
+    const {actual, proyectado} = computeBolsillo(b);
+    const over = actual.diff<0;
+    const fechaInfo = b.pago ? `Corte día ${b.corteDia} · Pago día ${b.pagoDia} → <strong>${fmtDate(b.pago,{day:'numeric',month:'short'})}</strong> (${daysUntil(b.pago)}d)` : `Corte día ${b.corteDia} · Pago día ${b.pagoDia} · sin ciclo activo`;
+    const tieneProy = proyectado.entTotal>0 || proyectado.salTotal>0 || b.cierreProy;
+    const proyLabel = b.pagoProy ? `cierra ${fmtDate(b.cierreProy,{day:'numeric',month:'short'})}, paga ${fmtDate(b.pagoProy,{day:'numeric',month:'short'})}` : '';
+    return `
+    <div class="bolsillo-card">
+      <div class="top-row"><div><h3>${b.name}</h3><div class="bolsillo-meta">${b.limite||''}</div></div><span class="tag ${over?'red':'green'}">${over?'Déficit':'Cubierto'}</span></div>
+      <div class="bolsillo-meta">${fechaInfo}</div>
+      ${cicloBox(actual, 'Ciclo actual')}
+      ${tieneProy ? cicloBox(proyectado, 'Próximo ciclo', proyLabel) : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderGastosFijos(){
+  const cats = STATE.gastosFijos.filter(g=>!['Sueldo','Restante'].includes(g.cat));
+  const sueldo = STATE.gastosFijos.find(g=>g.cat==='Sueldo');
+  const subtotal = cats.reduce((s,c)=>({q15:s.q15+c.q15, q30:s.q30+c.q30}), {q15:0,q30:0});
+  const numInput = (rec,fieldKey,val) => `<input class="inline-num gf-input" data-col="${fieldKey}" type="number" value="${val}" oninput="recalcGastosFijos()" onchange="updateGastoFijo('${rec}','${fieldKey}',this.value)">`;
+  const staticCell = (fieldKey,val) => `<span class="gf-static" data-col="${fieldKey}" data-value="${val}">${fmt(val)}</span>`;
+  const isEditable = c => c.cat==='Servicios';
+  let rows = cats.map(c=>`<tr class="gf-row"><td>${c.cat}</td><td class="num">${isEditable(c)?numInput(c.id,'q15',c.q15):staticCell('q15',c.q15)}</td><td class="num">${isEditable(c)?numInput(c.id,'q30',c.q30):staticCell('q30',c.q30)}</td></tr>`).join('');
+  rows += `<tr><td style="color:var(--muted); font-size:11px;">Subtotal gastos fijos</td><td class="num" style="color:var(--muted); font-size:11px;" id="gf-subtotal-q15">${fmt(subtotal.q15)}</td><td class="num" style="color:var(--muted); font-size:11px;" id="gf-subtotal-q30">${fmt(subtotal.q30)}</td></tr>`;
+  if(sueldo){
+    rows += `<tr class="sueldo-row"><td>Sueldo</td><td class="num" id="gf-sueldo-q15" data-value="${sueldo.q15}">${fmt(sueldo.q15)}</td><td class="num" id="gf-sueldo-q30" data-value="${sueldo.q30}">${fmt(sueldo.q30)}</td></tr>`;
+    rows += `<tr class="restante-row"><td>Restante (ganancia)</td><td class="num" id="gf-restante-q15">${fmt(sueldo.q15-subtotal.q15)}</td><td class="num" id="gf-restante-q30">${fmt(sueldo.q30-subtotal.q30)}</td></tr>`;
+  }
+  document.getElementById('gastosFijosTable').innerHTML = `<thead><tr><th>Categoría</th><th class="num">Quincena 15</th><th class="num">Quincena 30</th></tr></thead><tbody>${rows}</tbody>`;
+
+  const casa = STATE.serviciosHogar.filter(s=>s.grupo==='casa');
+  const padres = STATE.serviciosHogar.filter(s=>s.grupo==='padres');
+  const svcInput = (s) => `<li><span>${s.servicio}</span><input class="inline-num svc-input" data-grupo="${s.grupo}" type="number" value="${s.valor}" oninput="recalcServicios()" onchange="updateServicioValor('${s.id}',this.value)"></li>`;
+  document.getElementById('serviciosCasa').innerHTML = casa.map(svcInput).join('') + `<li class="tot"><span>Total casa</span><span id="total-casa">${fmt(casa.reduce((s,x)=>s+x.valor,0))}</span></li>`;
+  document.getElementById('serviciosPadres').innerHTML = padres.map(svcInput).join('') + `<li class="tot"><span>Total padres</span><span id="total-padres">${fmt(padres.reduce((s,x)=>s+x.valor,0))}</span></li>`;
+  const totalServicios = casa.reduce((s,x)=>s+x.valor,0) + padres.reduce((s,x)=>s+x.valor,0);
+  const servHint = document.getElementById('servHint');
+  if(servHint) servHint.innerHTML = `Total actual de servicios: <span id="total-servicios">${fmt(totalServicios)}</span>. Si cambia, ajusta manualmente la fila "Servicios" de la izquierda para repartirlo entre las quincenas.`;
+}
+
+function recalcGastosFijos(){
+  let q15=0, q30=0;
+  document.querySelectorAll('#gastosFijosTable .gf-row').forEach(row=>{
+    const q15el = row.querySelector('[data-col="q15"]');
+    const q30el = row.querySelector('[data-col="q30"]');
+    q15 += q15el ? parseFloat(q15el.value ?? q15el.dataset.value) || 0 : 0;
+    q30 += q30el ? parseFloat(q30el.value ?? q30el.dataset.value) || 0 : 0;
+  });
+  const q15box = document.getElementById('gf-subtotal-q15');
+  const q30box = document.getElementById('gf-subtotal-q30');
+  if(q15box) q15box.textContent = fmt(q15);
+  if(q30box) q30box.textContent = fmt(q30);
+  const sueldoQ15el = document.getElementById('gf-sueldo-q15');
+  const sueldoQ30el = document.getElementById('gf-sueldo-q30');
+  const restanteQ15box = document.getElementById('gf-restante-q15');
+  const restanteQ30box = document.getElementById('gf-restante-q30');
+  if(sueldoQ15el && restanteQ15box) restanteQ15box.textContent = fmt((parseFloat(sueldoQ15el.dataset.value)||0) - q15);
+  if(sueldoQ30el && restanteQ30box) restanteQ30box.textContent = fmt((parseFloat(sueldoQ30el.dataset.value)||0) - q30);
+}
+
+function recalcServicios(){
+  let casaTotal=0, padresTotal=0;
+  document.querySelectorAll('.svc-input').forEach(el=>{
+    const v = parseFloat(el.value)||0;
+    if(el.dataset.grupo==='casa') casaTotal+=v; else if(el.dataset.grupo==='padres') padresTotal+=v;
+  });
+  const tc = document.getElementById('total-casa');
+  const tp = document.getElementById('total-padres');
+  const ts = document.getElementById('total-servicios');
+  if(tc) tc.textContent = fmt(casaTotal);
+  if(tp) tp.textContent = fmt(padresTotal);
+  if(ts) ts.textContent = fmt(casaTotal+padresTotal);
+}
+
+function renderLicencias(){
+  const mk = monthKey();
+  const rows = STATE.licencias.map(c=>{
+    const pagado = c.pagado && c.mesCheck===mk;
+    return `<tr style="${pagado?'background:var(--green-soft);':''}">
+      <td><label class="chk-label" style="display:inline-flex;"><input type="checkbox" ${pagado?'checked':''} onchange="toggleLicPagado('${c.id}')"><span>${c.cliente}</span></label> <span class="bolsillo-meta">(paga día ${c.diaPago})</span></td>
+      <td class="num">${fmt(c.ventaBruta)}</td><td class="num">${c.retencion?fmt(c.retencion):"—"}</td><td class="num">${fmt(c.ventaNeta)}</td><td class="num">${fmt(c.costo)}</td>
+      <td class="num" style="color:var(--green); font-weight:700;">${fmt(c.ganancia)}</td>
+      <td class="num">${pagado?'<span class="tag green">Pagado</span>':'<span class="tag gray">Pendiente</span>'}</td></tr>`;
+  }).join('');
+  document.getElementById('licenciasTable').innerHTML = `<thead><tr><th>Cliente</th><th class="num">Venta bruta</th><th class="num">Retención</th><th class="num">Venta neta</th><th class="num">Costo</th><th class="num">Ganancia</th><th class="num">Estado</th></tr></thead><tbody>${rows}</tbody>`;
+  const lic = computeLicenciasDisponible();
+  document.getElementById('licTotal').textContent = `${fmt(lic.disponible)} de ${fmt(lic.total)}`;
+  document.getElementById('licNota').textContent = `${lic.pagados}/${lic.deTotal} clientes pagaron este mes. Se reinicia solo al empezar un mes nuevo.`;
+}
+
+function renderAll(){
+  renderTop(); renderBolsillos(); renderGastosFijos(); renderLicencias();
+}
+
+async function startApp(){
+  try{
+    await loadAll();
+    renderAll();
+    document.getElementById('statusBadge').textContent = 'Sincronizado · ' + new Date().toLocaleTimeString('es-CO');
+  }catch(err){
+    document.getElementById('statusBadge').textContent = 'Error al cargar';
+    document.getElementById('statusBadge').classList.add('err');
+    document.getElementById('globalError').innerHTML = `<div class="alert"><strong>No se pudo cargar Airtable:</strong> ${err.message}</div>`;
+  }
+}
+
+document.getElementById('pinForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  const val = document.getElementById('pinInput').value.trim();
+  const errBox = document.getElementById('pinError');
+  const btn = document.getElementById('pinSubmitBtn');
+  if(!val){ errBox.textContent = 'Ingresá el PIN.'; return; }
+  PIN = val;
+  btn.disabled = true; btn.textContent = 'Verificando…'; errBox.textContent = '';
+  try{
+    // list_records_for_table sobre Bolsillos sirve como chequeo: si el PIN es incorrecto, el Worker devuelve 401.
+    await callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.bols});
+    sessionStorage.setItem('mf_pin', PIN);
+    document.getElementById('pinGate').style.display = 'none';
+    startApp();
+  }catch(err){
+    PIN = '';
+    errBox.textContent = err.message === 'PIN_INVALIDO' ? 'PIN incorrecto.' : `Error de conexión: ${err.message}`;
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+});
+
+// Si ya había un PIN guardado en esta pestaña, entra directo sin pedirlo de nuevo.
+if(PIN){
+  document.getElementById('pinGate').style.display = 'none';
+  startApp();
+}
+</script>
+</body>
+</html>
