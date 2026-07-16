@@ -127,12 +127,14 @@
 </div>
 
 <div id="globalError"></div>
+<div id="cycleNotice"></div>
 
 <div class="layout">
   <nav class="side-nav" id="sideNav">
     <button class="nav-item" data-tab="bolsillos"><div><span class="label"><span class="dot" style="background:var(--purple)"></span>Bolsillos</span><span class="sub">Tarjetas</span></div></button>
     <button class="nav-item" data-tab="gastos"><div><span class="label"><span class="dot" style="background:var(--blue)"></span>Gastos fijos</span><span class="sub">Quincenal</span></div></button>
     <button class="nav-item" data-tab="licencias"><div><span class="label"><span class="dot" style="background:var(--yellow)"></span>Licencias</span><span class="sub">Negocio</span></div></button>
+    <button class="nav-item" data-tab="historial"><div><span class="label"><span class="dot" style="background:var(--muted)"></span>Historial</span><span class="sub">Ciclos cerrados</span></div></button>
   </nav>
 
   <div class="content-pane" id="contentPane" style="display:none;">
@@ -187,6 +189,13 @@
         <div class="note" id="licNota" style="text-align:right; max-width:250px;"></div>
       </div>
     </div>
+
+    <div class="tab-content" id="tab-historial">
+      <div class="eyebrow">HISTORIAL · CICLOS CERRADOS</div>
+      <div class="tab-title">Lo que ya se cerró.</div>
+      <div class="tab-desc">Se agrupa por bolsillo y por ciclo, se genera solo cuando un ciclo cierra.</div>
+      <div id="historialContent"></div>
+    </div>
   </div>
 </div>
 
@@ -195,15 +204,16 @@
 <script>
 // ⚠️ Reemplazá esta URL por la de tu propio Worker una vez que lo despliegues en Cloudflare.
 // La obtenés en el dashboard de Cloudflare, algo como: https://mis-finanzas-api.tu-usuario.workers.dev
-const WORKER_URL = 'https://mis-finanzas-api.sebastianrmarin5.workers.dev/';
+const WORKER_URL = 'https://REEMPLAZA-CON-TU-WORKER.workers.dev';
 const BASE_ID = 'applb9F664ngtZEWI';
-const T = { bols:'tblgJwqO9ZDHlrcyy', mov:'tblX4joy1nITOL9ds', lic:'tblbbNWqXtzu932t6', gf:'tblFHJZsnMz7Cc0Uf', sh:'tblRC543SvM5g5Rp2' };
+const T = { bols:'tblgJwqO9ZDHlrcyy', mov:'tblX4joy1nITOL9ds', lic:'tblbbNWqXtzu932t6', gf:'tblFHJZsnMz7Cc0Uf', sh:'tblRC543SvM5g5Rp2', cf:'tblIFZsh4KqlyowTl' };
 const F = {
   bols:{name:'fldfvxJeUKt2MhmcX', limite:'fldstytU8vDJlp4iA', corteDia:'fldOEnwAVsaoMTOEY', pagoDia:'fldmLxXnhMytcJi3O', cierre:'fldMHxiAerS3STZNH', pago:'fldTYA0rhJqdTaQNR', saldo:'fldhXViPsP5HmoJwT', cierreProy:'fld99AO3GZkxaamaH', pagoProy:'fldb6Ret0r5Qe2HFM'},
   mov:{desc:'fldJxn0cA8JdG1ye0', bolsillo:'fldVjcwwy1V474aen', tipo:'fldfYt60dqMb415KP', monto:'fld10zoVkHAIXaQbn', origen:'fldMJG2txgHmiZRAT', estado:'fldPNA6GQWh9sZ5yt', fecha:'fld4O9VeJkQjUvYVQ', ciclo:'fldAJjfvg4BloSuJK'},
   lic:{cliente:'fldfTBCv8vBppcZiP', diaPago:'fldK0ptMmYG9VqAxv', ventaBruta:'fld3Bx5gufioQkfE7', retencion:'fld3ijuH3WMN32Ip6', ventaNeta:'fldHGfqzC1F3cEckm', costo:'fldjI6rcC5t29K6NW', ganancia:'fldy8l3Jxmp6DCIla', pagado:'fldukNsXNp9YkC7lA', mesCheck:'fldprUlXBX57cD1jw'},
   gf:{cat:'fldiBWV9uHPZwOR0n', q15:'fldJPqgT0l3jOpy7u', q30:'fldViFblXjPocvV8O'},
-  sh:{servicio:'fldYKOD2R3TXGT84c', grupo:'fldPh1CnuAk4c4GFh', valor:'fldP1RPWU3eAyLK4i'}
+  sh:{servicio:'fldYKOD2R3TXGT84c', grupo:'fldPh1CnuAk4c4GFh', valor:'fldP1RPWU3eAyLK4i'},
+  cf:{nombre:'fld0x3Bgp8hwVZMtj', bolsillo:'fldRrMDikBh3snHMy', tipo:'fld6K0rUyT8NzhxcY', monto:'fldPXcwW4GVb5S900', activo:'fldHL2JCnYAjXKm6G'}
 };
 
 // PIN guardado en memoria durante la sesión (y en sessionStorage para no repetirlo si recargás la página,
@@ -228,16 +238,33 @@ const today = new Date();
 function daysUntil(dateStr){ if(!dateStr) return null; const d = new Date(dateStr+"T00:00:00"); return Math.ceil((d-today)/86400000); }
 function fmtDate(dateStr, opts){ return new Date(dateStr+"T00:00:00").toLocaleDateString('es-CO', opts); }
 function monthKey(){ return `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`; }
+function cycleMonthTag(dateStr){
+  const d = new Date(dateStr+"T00:00:00");
+  return `cerrado-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function advanceMonthToDay(dateStr, day){
+  const d = new Date(dateStr+"T00:00:00");
+  const firstOfNext = new Date(d.getFullYear(), d.getMonth()+1, 1);
+  const daysInTarget = new Date(firstOfNext.getFullYear(), firstOfNext.getMonth()+1, 0).getDate();
+  const finalDay = Math.min(day || d.getDate(), daysInTarget);
+  return new Date(firstOfNext.getFullYear(), firstOfNext.getMonth(), finalDay).toISOString().slice(0,10);
+}
+function chunkArray(arr, size){
+  const out = [];
+  for(let i=0;i<arr.length;i+=size) out.push(arr.slice(i,i+size));
+  return out;
+}
 
 let STATE = null; // { bolsillos:[], movimientos:[], licencias:[], gastosFijos:[], serviciosHogar:[] }
 
 async function loadAll(){
-  const [bolsRes, movRes, licRes, gfRes, shRes] = await Promise.all([
+  const [bolsRes, movRes, licRes, gfRes, shRes, cfRes] = await Promise.all([
     callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.bols}),
     callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.mov, pageSize:1000}),
     callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.lic}),
     callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.gf}),
     callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.sh}),
+    callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.cf}),
   ]);
   STATE = {
     bolsillos: bolsRes.records.map(r=>({id:r.id, ...Object.fromEntries(Object.entries(F.bols).map(([k,fid])=>[k, r.cellValuesByFieldId[fid]]))})),
@@ -245,6 +272,7 @@ async function loadAll(){
     licencias: licRes.records.map(r=>({id:r.id, cliente:r.cellValuesByFieldId[F.lic.cliente], diaPago:r.cellValuesByFieldId[F.lic.diaPago], ventaBruta:r.cellValuesByFieldId[F.lic.ventaBruta]||0, retencion:r.cellValuesByFieldId[F.lic.retencion]||0, ventaNeta:r.cellValuesByFieldId[F.lic.ventaNeta]||0, costo:r.cellValuesByFieldId[F.lic.costo]||0, ganancia:r.cellValuesByFieldId[F.lic.ganancia]||0, pagado:!!r.cellValuesByFieldId[F.lic.pagado], mesCheck:r.cellValuesByFieldId[F.lic.mesCheck]||''})),
     gastosFijos: gfRes.records.map(r=>({id:r.id, cat:r.cellValuesByFieldId[F.gf.cat], q15:r.cellValuesByFieldId[F.gf.q15]||0, q30:r.cellValuesByFieldId[F.gf.q30]||0})),
     serviciosHogar: shRes.records.map(r=>({id:r.id, servicio:r.cellValuesByFieldId[F.sh.servicio], grupo:selName(r.cellValuesByFieldId[F.sh.grupo]), valor:r.cellValuesByFieldId[F.sh.valor]||0})),
+    conceptosFijos: cfRes.records.map(r=>({id:r.id, nombre:r.cellValuesByFieldId[F.cf.nombre], bolsillo:r.cellValuesByFieldId[F.cf.bolsillo], tipo:selName(r.cellValuesByFieldId[F.cf.tipo]), monto:r.cellValuesByFieldId[F.cf.monto]||0, activo:!!r.cellValuesByFieldId[F.cf.activo]})),
   };
   const BOLSILLO_ORDER = ['TC_S','TC_L','TC_D','TC_S+'];
   STATE.bolsillos.sort((a,b)=>BOLSILLO_ORDER.indexOf(a.name)-BOLSILLO_ORDER.indexOf(b.name));
@@ -273,6 +301,69 @@ function computeLicenciasDisponible(){
   const disponible = pagadosEsteMes.reduce((s,c)=>s+c.ganancia,0);
   const total = STATE.licencias.reduce((s,c)=>s+c.ganancia,0);
   return {disponible, total, pagados:pagadosEsteMes.length, deTotal:STATE.licencias.length};
+}
+
+/* ============ CIERRE DE CICLO ============
+   Cuando la fecha de "pago" (facturación) de un bolsillo ya pasó — NO la de "cierre" (corte,
+   que es de uso manual tuyo para saber a qué ciclo cargar un gasto):
+   - Los movimientos del ciclo "actual" se archivan con la etiqueta cerrado-YYYY-MM.
+   - Del ciclo "proyectado": las salidas y entradas pendientes pasan a ser "actual".
+     Las entradas que ya estaban "en_saldo" NO se promueven como movimiento (para no duplicar):
+     su valor ya quedó incorporado en el nuevo saldo base, así que se archivan también.
+   - El bolsillo actualiza su saldo base y sus 4 fechas de ciclo.
+*/
+async function checkAndCloseCycles(){
+  const resumen = [];
+  const hoy = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  for(const b of STATE.bolsillos){
+    if(!b.pago) continue;
+    if(new Date(b.pago+"T00:00:00") >= hoy) continue;
+    if(!b.cierreProy || !b.pagoProy){
+      resumen.push(`⚠ ${b.name}: no se pudo cerrar el ciclo — falta la fecha de cierre o pago proyectado.`);
+      continue;
+    }
+
+    const actualMovs = STATE.movimientos.filter(m=>m.bolsillo===b.name && m.ciclo==='actual');
+    const proyMovs = STATE.movimientos.filter(m=>m.bolsillo===b.name && m.ciclo==='proyectado');
+    const yaEnSaldo = proyMovs.filter(m=>m.tipo==='entrada' && m.estado==='en_saldo');
+    const aPromover = proyMovs.filter(m=>!(m.tipo==='entrada' && m.estado==='en_saldo'));
+    const nuevoSaldo = computeCiclo(proyMovs, 0).saldo;
+    const tag = cycleMonthTag(b.pago);
+
+    const updates = [
+      ...actualMovs.map(m=>({id:m.id, fields:{[F.mov.ciclo]: tag}})),
+      ...yaEnSaldo.map(m=>({id:m.id, fields:{[F.mov.ciclo]: tag}})),
+      ...aPromover.map(m=>({id:m.id, fields:{[F.mov.ciclo]: 'actual'}})),
+    ];
+    for(const chunk of chunkArray(updates, 10)){
+      await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.mov, records:chunk});
+    }
+
+    const nuevoCierreProy = advanceMonthToDay(b.cierreProy, b.corteDia);
+    const nuevoPagoProy = advanceMonthToDay(b.pagoProy, b.pagoDia);
+    await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.bols, records:[{id:b.id, fields:{
+      [F.bols.saldo]: nuevoSaldo,
+      [F.bols.cierre]: b.cierreProy,
+      [F.bols.pago]: b.pagoProy,
+      [F.bols.cierreProy]: nuevoCierreProy,
+      [F.bols.pagoProy]: nuevoPagoProy,
+    }}]});
+
+    const fijos = STATE.conceptosFijos.filter(c=>c.activo && c.bolsillo===b.name);
+    if(fijos.length){
+      const nuevosMovs = fijos.map(c=>{
+        const fields = {[F.mov.desc]:c.nombre, [F.mov.bolsillo]:b.name, [F.mov.tipo]:c.tipo, [F.mov.monto]:c.monto, [F.mov.origen]:'fijo', [F.mov.fecha]:new Date().toISOString().slice(0,10), [F.mov.ciclo]:'actual'};
+        if(c.tipo==='entrada') fields[F.mov.estado] = 'pendiente';
+        return {fields};
+      });
+      for(const chunk of chunkArray(nuevosMovs, 10)){
+        await callTool('create_records_for_table', {baseId:BASE_ID, tableId:T.mov, records:chunk});
+      }
+    }
+
+    resumen.push(`✔ ${b.name}: nuevo ciclo desde ${fmtDate(b.cierreProy,{day:'numeric',month:'short'})}, saldo inicial ${fmt(nuevoSaldo)}${fijos.length?`, ${fijos.length} concepto(s) fijo(s) agregado(s)`:''}.`);
+  }
+  return resumen;
 }
 
 /* ============ TABS ============ */
@@ -508,14 +599,40 @@ function renderLicencias(){
   document.getElementById('licNota').textContent = `${lic.pagados}/${lic.deTotal} clientes pagaron este mes. Se reinicia solo al empezar un mes nuevo.`;
 }
 
+function renderHistorial(){
+  const box = document.getElementById('historialContent');
+  const cerrados = STATE.movimientos.filter(m=>m.ciclo && m.ciclo.startsWith('cerrado-'));
+  if(!cerrados.length){ box.innerHTML = '<p class="empty-hint">Todavía no se cerró ningún ciclo.</p>'; return; }
+  const groups = {};
+  cerrados.forEach(m=>{ const key = `${m.bolsillo}|${m.ciclo}`; (groups[key] = groups[key]||[]).push(m); });
+  const keys = Object.keys(groups).sort().reverse();
+  box.innerHTML = keys.map(key=>{
+    const [bolsillo, tag] = key.split('|');
+    const movs = groups[key];
+    const entradas = movs.filter(m=>m.tipo==='entrada').reduce((s,m)=>s+m.monto,0);
+    const salidas = movs.filter(m=>m.tipo==='salida').reduce((s,m)=>s+m.monto,0);
+    const periodo = tag.replace('cerrado-','');
+    return `<div class="bolsillo-card" style="margin-bottom:14px;">
+      <div class="top-row"><h3>${bolsillo} · ${periodo}</h3></div>
+      <div class="bar-labels"><span>Entradas ${fmt(entradas)}</span><span>Salidas ${fmt(salidas)}</span></div>
+      <ul class="mov-list" style="margin-top:10px;">${movs.map(m=>`<li><span class="desc">${m.desc}</span><span class="amt" style="color:${m.tipo==='entrada'?'var(--green)':'var(--red)'}">${fmt(m.monto)}</span></li>`).join('')}</ul>
+    </div>`;
+  }).join('');
+}
+
 function renderAll(){
-  renderTop(); renderBolsillos(); renderGastosFijos(); renderLicencias();
+  renderTop(); renderBolsillos(); renderGastosFijos(); renderLicencias(); renderHistorial();
 }
 
 async function startApp(){
   try{
     await loadAll();
+    const resumenCierre = await checkAndCloseCycles();
+    if(resumenCierre.length) await loadAll();
     renderAll();
+    if(resumenCierre.length){
+      document.getElementById('cycleNotice').innerHTML = `<div class="sync-note">${resumenCierre.join('<br>')}</div>`;
+    }
     document.getElementById('statusBadge').textContent = 'Sincronizado · ' + new Date().toLocaleTimeString('es-CO');
   }catch(err){
     document.getElementById('statusBadge').textContent = 'Error al cargar';
