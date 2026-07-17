@@ -204,7 +204,7 @@
 <script>
 // ⚠️ Reemplazá esta URL por la de tu propio Worker una vez que lo despliegues en Cloudflare.
 // La obtenés en el dashboard de Cloudflare, algo como: https://mis-finanzas-api.tu-usuario.workers.dev
-const WORKER_URL = 'https://mis-finanzas-api.sebastianrmarin5.workers.dev/';
+const WORKER_URL = 'https://REEMPLAZA-CON-TU-WORKER.workers.dev';
 const BASE_ID = 'applb9F664ngtZEWI';
 const T = { bols:'tblgJwqO9ZDHlrcyy', mov:'tblX4joy1nITOL9ds', lic:'tblbbNWqXtzu932t6', gf:'tblFHJZsnMz7Cc0Uf', sh:'tblRC543SvM5g5Rp2', cf:'tblIFZsh4KqlyowTl' };
 const F = {
@@ -212,7 +212,7 @@ const F = {
   mov:{desc:'fldJxn0cA8JdG1ye0', bolsillo:'fldVjcwwy1V474aen', tipo:'fldfYt60dqMb415KP', monto:'fld10zoVkHAIXaQbn', origen:'fldMJG2txgHmiZRAT', estado:'fldPNA6GQWh9sZ5yt', fecha:'fld4O9VeJkQjUvYVQ', ciclo:'fldAJjfvg4BloSuJK'},
   lic:{cliente:'fldfTBCv8vBppcZiP', diaPago:'fldK0ptMmYG9VqAxv', ventaBruta:'fld3Bx5gufioQkfE7', retencion:'fld3ijuH3WMN32Ip6', ventaNeta:'fldHGfqzC1F3cEckm', costo:'fldjI6rcC5t29K6NW', ganancia:'fldy8l3Jxmp6DCIla', pagado:'fldukNsXNp9YkC7lA', mesCheck:'fldprUlXBX57cD1jw'},
   gf:{cat:'fldiBWV9uHPZwOR0n', q15:'fldJPqgT0l3jOpy7u', q30:'fldViFblXjPocvV8O'},
-  sh:{servicio:'fldYKOD2R3TXGT84c', grupo:'fldPh1CnuAk4c4GFh', valor:'fldP1RPWU3eAyLK4i'},
+  sh:{servicio:'fldYKOD2R3TXGT84c', grupo:'fldPh1CnuAk4c4GFh', valor:'fldP1RPWU3eAyLK4i', pagado:'fldInzK4ZVgPnItpn', mesCheck:'fldk5tSyYyyinpZoT'},
   cf:{nombre:'fld0x3Bgp8hwVZMtj', bolsillo:'fldRrMDikBh3snHMy', tipo:'fld6K0rUyT8NzhxcY', monto:'fldPXcwW4GVb5S900', activo:'fldHL2JCnYAjXKm6G'}
 };
 
@@ -271,7 +271,7 @@ async function loadAll(){
     movimientos: movRes.records.map(r=>({id:r.id, desc:r.cellValuesByFieldId[F.mov.desc], bolsillo:r.cellValuesByFieldId[F.mov.bolsillo], tipo:selName(r.cellValuesByFieldId[F.mov.tipo]), monto:r.cellValuesByFieldId[F.mov.monto]||0, origen:selName(r.cellValuesByFieldId[F.mov.origen]), estado:selName(r.cellValuesByFieldId[F.mov.estado]), ciclo:selName(r.cellValuesByFieldId[F.mov.ciclo])||'actual'})),
     licencias: licRes.records.map(r=>({id:r.id, cliente:r.cellValuesByFieldId[F.lic.cliente], diaPago:r.cellValuesByFieldId[F.lic.diaPago], ventaBruta:r.cellValuesByFieldId[F.lic.ventaBruta]||0, retencion:r.cellValuesByFieldId[F.lic.retencion]||0, ventaNeta:r.cellValuesByFieldId[F.lic.ventaNeta]||0, costo:r.cellValuesByFieldId[F.lic.costo]||0, ganancia:r.cellValuesByFieldId[F.lic.ganancia]||0, pagado:!!r.cellValuesByFieldId[F.lic.pagado], mesCheck:r.cellValuesByFieldId[F.lic.mesCheck]||''})),
     gastosFijos: gfRes.records.map(r=>({id:r.id, cat:r.cellValuesByFieldId[F.gf.cat], q15:r.cellValuesByFieldId[F.gf.q15]||0, q30:r.cellValuesByFieldId[F.gf.q30]||0})),
-    serviciosHogar: shRes.records.map(r=>({id:r.id, servicio:r.cellValuesByFieldId[F.sh.servicio], grupo:selName(r.cellValuesByFieldId[F.sh.grupo]), valor:r.cellValuesByFieldId[F.sh.valor]||0})),
+    serviciosHogar: shRes.records.map(r=>({id:r.id, servicio:r.cellValuesByFieldId[F.sh.servicio], grupo:selName(r.cellValuesByFieldId[F.sh.grupo]), valor:r.cellValuesByFieldId[F.sh.valor]||0, pagado:!!r.cellValuesByFieldId[F.sh.pagado]})),
     conceptosFijos: cfRes.records.map(r=>({id:r.id, nombre:r.cellValuesByFieldId[F.cf.nombre], bolsillo:r.cellValuesByFieldId[F.cf.bolsillo], tipo:selName(r.cellValuesByFieldId[F.cf.tipo]), monto:r.cellValuesByFieldId[F.cf.monto]||0, activo:!!r.cellValuesByFieldId[F.cf.activo]})),
   };
   const BOLSILLO_ORDER = ['TC_S','TC_L','TC_D','TC_S+'];
@@ -415,6 +415,12 @@ async function updateServicioValor(recId, value){
     await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.sh, records:[{id:recId, fields:{[F.sh.valor]:monto}}]});
   });
 }
+async function toggleServicioPagado(recId){
+  await withBusy(async ()=>{
+    const s = STATE.serviciosHogar.find(x=>x.id===recId);
+    await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.sh, records:[{id:recId, fields:{[F.sh.pagado]: !s.pagado}}]});
+  });
+}
 async function updateGastoFijo(recId, fieldKey, value){
   const monto = parseFloat(value);
   if(isNaN(monto) || monto<0) return;
@@ -541,12 +547,23 @@ function renderGastosFijos(){
 
   const casa = STATE.serviciosHogar.filter(s=>s.grupo==='casa');
   const padres = STATE.serviciosHogar.filter(s=>s.grupo==='padres');
-  const svcInput = (s) => `<li><span>${s.servicio}</span><input class="inline-num svc-input" data-grupo="${s.grupo}" type="number" value="${s.valor}" oninput="recalcServicios()" onchange="updateServicioValor('${s.id}',this.value)"></li>`;
-  document.getElementById('serviciosCasa').innerHTML = casa.map(svcInput).join('') + `<li class="tot"><span>Total casa</span><span id="total-casa">${fmt(casa.reduce((s,x)=>s+x.valor,0))}</span></li>`;
-  document.getElementById('serviciosPadres').innerHTML = padres.map(svcInput).join('') + `<li class="tot"><span>Total padres</span><span id="total-padres">${fmt(padres.reduce((s,x)=>s+x.valor,0))}</span></li>`;
-  const totalServicios = casa.reduce((s,x)=>s+x.valor,0) + padres.reduce((s,x)=>s+x.valor,0);
+  const estaPagado = s => s.pagado;
+  const svcInput = (s) => {
+    const pagado = estaPagado(s);
+    return `<li style="${pagado?'background:var(--green-soft); border-radius:8px; padding:4px 6px; margin:0 -6px;':''}">
+      <label class="chk-label" style="flex:1; gap:6px;">
+        <input type="checkbox" ${pagado?'checked':''} onchange="toggleServicioPagado('${s.id}')">
+        <span style="${pagado?'color:var(--green); font-weight:700;':''}">${s.servicio}</span>
+      </label>
+      <input class="inline-num svc-input" data-grupo="${s.grupo}" data-paid="${pagado?'1':'0'}" type="number" value="${s.valor}" oninput="recalcServicios()" onchange="updateServicioValor('${s.id}',this.value)">
+    </li>`;
+  };
+  const sinPagar = arr => arr.filter(x=>!estaPagado(x)).reduce((s,x)=>s+x.valor,0);
+  document.getElementById('serviciosCasa').innerHTML = casa.map(svcInput).join('') + `<li class="tot"><span>Total casa</span><span id="total-casa">${fmt(sinPagar(casa))}</span></li>`;
+  document.getElementById('serviciosPadres').innerHTML = padres.map(svcInput).join('') + `<li class="tot"><span>Total padres</span><span id="total-padres">${fmt(sinPagar(padres))}</span></li>`;
+  const totalServicios = sinPagar(casa) + sinPagar(padres);
   const servHint = document.getElementById('servHint');
-  if(servHint) servHint.innerHTML = `Total actual de servicios: <span id="total-servicios">${fmt(totalServicios)}</span>. Si cambia, ajusta manualmente la fila "Servicios" de la izquierda para repartirlo entre las quincenas.`;
+  if(servHint) servHint.innerHTML = `Total actual de servicios (sin contar los que ya marcaste como pagados): <span id="total-servicios">${fmt(totalServicios)}</span>. Si cambia, ajusta manualmente la fila "Servicios" de la izquierda para repartirlo entre las quincenas.`;
 }
 
 function recalcGastosFijos(){
@@ -572,6 +589,7 @@ function recalcGastosFijos(){
 function recalcServicios(){
   let casaTotal=0, padresTotal=0;
   document.querySelectorAll('.svc-input').forEach(el=>{
+    if(el.dataset.paid==='1') return;
     const v = parseFloat(el.value)||0;
     if(el.dataset.grupo==='casa') casaTotal+=v; else if(el.dataset.grupo==='padres') padresTotal+=v;
   });
