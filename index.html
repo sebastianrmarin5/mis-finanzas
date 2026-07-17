@@ -151,7 +151,7 @@
       <div class="sync-note">Esto escribe directo en tu base de Airtable — se ve igual desde el celular y cualquier computador donde abras este dashboard.</div>
       <form class="reg-form" id="regForm">
         <div><label>Bolsillo</label><select id="f_bolsillo"><option value="TC_S">TC_S</option><option value="TC_D">TC_D</option><option value="TC_L">TC_L</option><option value="TC_S+">TC_S+</option></select></div>
-        <div><label>Tipo</label><select id="f_tipo"><option value="salida">Gasto (salida)</option><option value="entrada">Ingreso (entrada)</option></select></div>
+        <div><label>Tipo</label><select id="f_tipo"><option value="salida">Gasto (salida)</option><option value="entrada">Ingreso (entrada)</option><option value="extraccion">Extracción (sale del saldo)</option></select></div>
         <div><label>Monto (COP)</label><input type="number" id="f_monto" placeholder="Ej: 50000" min="1"></div>
         <div><label>Descripción</label><input type="text" id="f_desc" placeholder="Ej: gasolina"></div>
         <div><label>Ciclo</label><select id="f_ciclo"><option value="actual">Actual</option><option value="proyectado">Próximo</option></select></div>
@@ -281,12 +281,15 @@ async function loadAll(){
 function computeCiclo(movs, saldoBase){
   const entradaMovs = movs.filter(m=>m.tipo==='entrada');
   const salidaMovs = movs.filter(m=>m.tipo==='salida');
+  const extraccionMovs = movs.filter(m=>m.tipo==='extraccion');
   const entTotal = (saldoBase||0) + entradaMovs.reduce((s,m)=>s+m.monto,0);
   const salTotal = salidaMovs.reduce((s,m)=>s+m.monto,0);
-  const saldoAjustado = (saldoBase||0) + entradaMovs.filter(m=>m.estado==='en_saldo').reduce((s,m)=>s+m.monto,0);
-  return { entTotal, salTotal, diff:entTotal-salTotal, saldo:saldoAjustado,
+  const extraccionTotal = extraccionMovs.reduce((s,m)=>s+m.monto,0);
+  const saldoAjustado = (saldoBase||0) + entradaMovs.filter(m=>m.estado==='en_saldo').reduce((s,m)=>s+m.monto,0) - extraccionTotal;
+  return { entTotal, salTotal, extraccionTotal, diff:entTotal-salTotal, saldo:saldoAjustado,
     pendientes: entradaMovs.filter(m=>m.estado==='pendiente'),
-    salidas: salidaMovs };
+    salidas: salidaMovs,
+    extracciones: extraccionMovs };
 }
 function computeBolsillo(b){
   // b.saldo es el saldo base FIJO importado del Excel (nunca se modifica) y solo aplica al ciclo actual.
@@ -497,9 +500,9 @@ function cicloBox(c, label, hint){
     <div class="bolsillo-meta" style="margin-top:12px; font-weight:700; color:var(--text);">${label}${hint?` · ${hint}`:''}</div>
     <div class="bar-labels"><span>Entradas ${fmt(c.entTotal)}</span><span>Salidas ${fmt(c.salTotal)}</span></div>
     <div class="bar-track"><div class="bar-fill ${over?'over':''}" style="width:${pct}%"></div></div>
-    <div class="diff-line"><span>Saldo: ${fmt(c.saldo)}</span><span class="diff-value ${over?'neg':'pos'}">${over?'':'+'}${fmt(c.diff)}</span></div>
+    <div class="diff-line"><span>Saldo: ${fmt(c.saldo)}${c.extraccionTotal>0?` <span style="color:var(--yellow); font-weight:600;">(−${fmt(c.extraccionTotal)} extraído)</span>`:''}</span><span class="diff-value ${over?'neg':'pos'}">${over?'':'+'}${fmt(c.diff)}</span></div>
     <details>
-      <summary>Ver movimientos (${c.pendientes.length} entradas pendientes / ${c.salidas.length} salidas)</summary>
+      <summary>Ver movimientos (${c.pendientes.length} entradas pendientes / ${c.salidas.length} salidas / ${c.extracciones.length} extracciones)</summary>
       <div class="two-col" style="gap:14px; margin-top:8px;">
         <div>
           <div class="bolsillo-meta" style="margin-bottom:4px;">ENTRADAS PENDIENTES</div>
@@ -509,6 +512,10 @@ function cicloBox(c, label, hint){
           <div class="bolsillo-meta" style="margin-bottom:4px;">SALIDAS</div>
           ${movList(c.salidas,'salidas')}
         </div>
+      </div>
+      <div style="margin-top:10px;">
+        <div class="bolsillo-meta" style="margin-bottom:4px;">EXTRACCIONES (restan del saldo)</div>
+        ${c.extracciones.length===0 ? '<p class="empty-hint">Ninguna.</p>' : `<ul class="mov-list">${c.extracciones.map(m=>`<li><span class="desc">${m.desc}</span><span class="amt" style="color:var(--yellow)">−${fmt(m.monto)}</span></li>`).join('')}</ul>`}
       </div>
     </details>`;
 }
