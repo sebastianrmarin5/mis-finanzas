@@ -286,7 +286,7 @@ function computeCiclo(movs, saldoBase){
   const salTotal = salidaMovs.reduce((s,m)=>s+m.monto,0);
   const extraccionTotal = extraccionMovs.reduce((s,m)=>s+m.monto,0);
   const saldoAjustado = (saldoBase||0) + entradaMovs.filter(m=>m.estado==='en_saldo').reduce((s,m)=>s+m.monto,0) - extraccionTotal;
-  return { entTotal, salTotal, extraccionTotal, diff:entTotal-salTotal, saldo:saldoAjustado,
+  return { entTotal, salTotal, extraccionTotal, diff:entTotal-salTotal-extraccionTotal, saldo:saldoAjustado,
     pendientes: entradaMovs.filter(m=>m.estado==='pendiente'),
     salidas: salidaMovs,
     extracciones: extraccionMovs };
@@ -500,7 +500,7 @@ function cicloBox(c, label, hint){
     <div class="bolsillo-meta" style="margin-top:12px; font-weight:700; color:var(--text);">${label}${hint?` · ${hint}`:''}</div>
     <div class="bar-labels"><span>Entradas ${fmt(c.entTotal)}</span><span>Salidas ${fmt(c.salTotal)}</span></div>
     <div class="bar-track"><div class="bar-fill ${over?'over':''}" style="width:${pct}%"></div></div>
-    <div class="diff-line"><span>Saldo: ${fmt(c.saldo)}${c.extraccionTotal>0?` <span style="color:var(--yellow); font-weight:600;">(−${fmt(c.extraccionTotal)} extraído)</span>`:''}</span><span class="diff-value ${over?'neg':'pos'}">${over?'':'+'}${fmt(c.diff)}</span></div>
+    <div class="diff-line"><span>Saldo: ${fmt(c.saldo)}</span><span class="diff-value ${over?'neg':'pos'}">${over?'':'+'}${fmt(c.diff)}</span></div>
     <details>
       <summary>Ver movimientos (${c.pendientes.length} entradas pendientes / ${c.salidas.length} salidas / ${c.extracciones.length} extracciones)</summary>
       <div class="two-col" style="gap:14px; margin-top:8px;">
