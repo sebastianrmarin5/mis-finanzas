@@ -531,11 +531,12 @@ function renderTop(){
 }
 
 function cicloBox(c, label, hint){
-  const pct = c.entTotal>0 ? Math.min(100,(c.salTotal/c.entTotal)*100) : 0;
+  const entradasMostradas = c.entTotal - c.extraccionTotal;
+  const pct = entradasMostradas>0 ? Math.min(100,(c.salTotal/entradasMostradas)*100) : 0;
   const over = c.diff<0;
   return `
     <div class="bolsillo-meta" style="margin-top:12px; font-weight:700; color:var(--text);">${label}${hint?` · ${hint}`:''}</div>
-    <div class="bar-labels"><span>Entradas ${fmt(c.entTotal)}</span><span>Salidas ${fmt(c.salTotal)}</span></div>
+    <div class="bar-labels"><span>Entradas ${fmt(entradasMostradas)}</span><span>Salidas ${fmt(c.salTotal)}</span></div>
     <div class="bar-track"><div class="bar-fill ${over?'over':''}" style="width:${pct}%"></div></div>
     <div class="diff-line"><span>Saldo: ${fmt(c.saldo)}</span><span class="diff-value ${over?'neg':'pos'}">${over?'':'+'}${fmt(c.diff)}</span></div>
     <details>
