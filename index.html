@@ -366,8 +366,10 @@ async function checkAndCloseCycles(){
     }}]});
 
     const fijos = STATE.conceptosFijos.filter(c=>c.activo && c.bolsillo===b.name);
-    if(fijos.length){
-      const nuevosMovs = fijos.map(c=>{
+    const yaPromovido = c => aPromover.some(m=>m.desc===c.nombre && m.tipo===c.tipo);
+    const fijosAInsertar = fijos.filter(c=>!yaPromovido(c));
+    if(fijosAInsertar.length){
+      const nuevosMovs = fijosAInsertar.map(c=>{
         const fields = {[F.mov.desc]:c.nombre, [F.mov.bolsillo]:b.name, [F.mov.tipo]:c.tipo, [F.mov.monto]:c.monto, [F.mov.origen]:'fijo', [F.mov.fecha]:new Date().toISOString().slice(0,10), [F.mov.ciclo]:'actual'};
         if(c.tipo==='entrada') fields[F.mov.estado] = 'pendiente';
         return {fields};
@@ -377,7 +379,7 @@ async function checkAndCloseCycles(){
       }
     }
 
-    resumen.push(`✔ ${b.name}: nuevo ciclo desde ${fmtDate(b.cierreProy,{day:'numeric',month:'short'})}, saldo inicial ${fmt(nuevoSaldo)}${fijos.length?`, ${fijos.length} concepto(s) fijo(s) agregado(s)`:''}.`);
+    resumen.push(`✔ ${b.name}: nuevo ciclo desde ${fmtDate(b.cierreProy,{day:'numeric',month:'short'})}, saldo inicial ${fmt(nuevoSaldo)}${fijosAInsertar.length?`, ${fijosAInsertar.length} concepto(s) fijo(s) agregado(s)`:''}.`);
   }
   return resumen;
 }
