@@ -398,16 +398,24 @@ document.getElementById('sideNav').addEventListener('click', function(e){
   }
 });
 
-/* ============ WRITE ACTIONS ============ */
+/* ============ WRITE ACTIONS ============
+   Importante: NO se vuelve a leer todo de Airtable después de cada acción — cada función
+   actualiza STATE en memoria con lo que ya sabemos que cambió. Esto es clave para no gastar
+   de más el límite mensual de llamadas a la API de Airtable (el plan Free da solo 1.000/mes).
+   Solo checkAndCloseCycles() recarga todo, porque ahí sí cambian muchos registros a la vez.
+*/
 async function withBusy(fn){
   document.getElementById('statusBadge').textContent = 'Guardando…';
-  try{ await fn(); await loadAll(); renderAll(); document.getElementById('statusBadge').textContent = 'Sincronizado · ' + new Date().toLocaleTimeString('es-CO'); }
+  try{ await fn(); document.getElementById('statusBadge').textContent = 'Sincronizado · ' + new Date().toLocaleTimeString('es-CO'); }
   catch(err){ document.getElementById('statusBadge').textContent = 'Error al guardar'; document.getElementById('statusBadge').classList.add('err'); document.getElementById('globalError').innerHTML = `<div class="alert"><strong>No se pudo guardar:</strong> ${err.message}</div>`; }
 }
 
 async function marcarCobrado(movId){
   await withBusy(async ()=>{
     await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.mov, records:[{id:movId, fields:{[F.mov.estado]:'en_saldo'}}]});
+    const m = STATE.movimientos.find(x=>x.id===movId);
+    if(m) m.estado = 'en_saldo';
+    renderAll();
   });
 }
 
@@ -418,9 +426,12 @@ async function toggleLicPagado(licId){
     const isPaidNow = c.pagado && c.mesCheck===mk;
     if(isPaidNow){
       await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.lic, records:[{id:licId, fields:{[F.lic.pagado]:false}}]});
+      c.pagado = false;
     } else {
       await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.lic, records:[{id:licId, fields:{[F.lic.pagado]:true, [F.lic.mesCheck]:mk}}]});
+      c.pagado = true; c.mesCheck = mk;
     }
+    renderAll();
   });
 }
 
@@ -429,12 +440,16 @@ async function updateServicioValor(recId, value){
   if(isNaN(monto) || monto<0) return;
   await withBusy(async ()=>{
     await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.sh, records:[{id:recId, fields:{[F.sh.valor]:monto}}]});
+    const s = STATE.serviciosHogar.find(x=>x.id===recId);
+    if(s) s.valor = monto;
   });
 }
 async function toggleServicioPagado(recId){
   await withBusy(async ()=>{
     const s = STATE.serviciosHogar.find(x=>x.id===recId);
     await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.sh, records:[{id:recId, fields:{[F.sh.pagado]: !s.pagado}}]});
+    s.pagado = !s.pagado;
+    renderAll();
   });
 }
 async function updateGastoFijo(recId, fieldKey, value){
@@ -442,12 +457,16 @@ async function updateGastoFijo(recId, fieldKey, value){
   if(isNaN(monto) || monto<0) return;
   await withBusy(async ()=>{
     await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.gf, records:[{id:recId, fields:{[F.gf[fieldKey]]:monto}}]});
+    const g = STATE.gastosFijos.find(x=>x.id===recId);
+    if(g) g[fieldKey] = monto;
   });
 }
 
 async function removeMovimiento(movId){
   await withBusy(async ()=>{
     await callTool('delete_records_for_table', {baseId:BASE_ID, tableId:T.mov, recordIds:[movId]});
+    STATE.movimientos = STATE.movimientos.filter(m=>m.id!==movId);
+    renderAll();
   });
 }
 
@@ -469,7 +488,10 @@ document.getElementById('regForm').addEventListener('submit', function(e){
     const estado = tipo==='entrada' ? (inmediato ? 'en_saldo' : 'pendiente') : undefined;
     const fields = {[F.mov.desc]:desc, [F.mov.bolsillo]:bolsillo, [F.mov.tipo]:tipo, [F.mov.monto]:monto, [F.mov.origen]:'agregado', [F.mov.fecha]:new Date().toISOString().slice(0,10), [F.mov.ciclo]:ciclo};
     if(estado) fields[F.mov.estado] = estado;
-    await callTool('create_records_for_table', {baseId:BASE_ID, tableId:T.mov, records:[{fields}]});
+    const res = await callTool('create_records_for_table', {baseId:BASE_ID, tableId:T.mov, records:[{fields}]});
+    const newId = res.records[0].id;
+    STATE.movimientos.push({id:newId, desc, bolsillo, tipo, monto, origen:'agregado', estado, ciclo, creado:new Date().toISOString()});
+    renderAll();
   });
   form.reset();
   document.getElementById('inmediatoRow').style.display = 'flex';
