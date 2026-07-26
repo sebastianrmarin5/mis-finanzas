@@ -254,6 +254,19 @@ function chunkArray(arr, size){
   for(let i=0;i<arr.length;i+=size) out.push(arr.slice(i,i+size));
   return out;
 }
+function nextOccurrenceOfDay(day){
+  if(!day) return null;
+  const hoy = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  let year = hoy.getFullYear(), month = hoy.getMonth();
+  let daysInMonth = new Date(year, month+1, 0).getDate();
+  let candidate = new Date(year, month, Math.min(day, daysInMonth));
+  if(candidate < hoy){
+    month += 1;
+    daysInMonth = new Date(year, month+1, 0).getDate();
+    candidate = new Date(year, month, Math.min(day, daysInMonth));
+  }
+  return candidate.toISOString().slice(0,10);
+}
 
 let STATE = null; // { bolsillos:[], movimientos:[], licencias:[], gastosFijos:[], serviciosHogar:[] }
 
@@ -526,7 +539,7 @@ function renderBolsillos(){
     const over = actual.diff<0;
     const fechaInfo = b.pago ? `Corte día ${b.corteDia} · Pago día ${b.pagoDia} → <strong>${fmtDate(b.pago,{day:'numeric',month:'short'})}</strong> (${daysUntil(b.pago)}d)` : `Corte día ${b.corteDia} · Pago día ${b.pagoDia} · sin ciclo activo`;
     const tieneProy = proyectado.entTotal>0 || proyectado.salTotal>0 || b.cierreProy;
-    const proyLabel = b.pagoProy ? `cierra ${fmtDate(b.cierreProy,{day:'numeric',month:'short'})}, paga ${fmtDate(b.pagoProy,{day:'numeric',month:'short'})}` : '';
+    const proyLabel = b.pagoProy ? `cierra ${fmtDate(nextOccurrenceOfDay(b.corteDia),{day:'numeric',month:'short'})}, paga ${fmtDate(b.pagoProy,{day:'numeric',month:'short'})}` : '';
     return `
     <div class="bolsillo-card">
       <div class="top-row"><div><h3>${b.name}</h3><div class="bolsillo-meta">${b.limite||''}</div></div><span class="tag ${over?'red':'green'}">${over?'Déficit':'Cubierto'}</span></div>
