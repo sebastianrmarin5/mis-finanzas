@@ -533,7 +533,7 @@ document.getElementById('regForm').addEventListener('submit', function(e){
 function movList(items, cls){
   if(!items.length) return `<p class="empty-hint">Sin movimientos.</p>`;
   if(cls==='salidas'){
-    return `<ul class="mov-list ${cls}">${items.map(i=>`<li><label class="chk-label" style="flex:1; gap:6px;"><input type="checkbox" ${i.revisado?'checked':''} onchange="toggleRevisado('${i.id}')"><span class="desc" style="${i.revisado?'text-decoration:line-through; opacity:.55;':''}">${i.desc}${i.origen==='agregado'?' · agregado':''}</span></label><span class="amt" style="color:var(--red); ${i.revisado?'text-decoration:line-through; opacity:.55;':''}">${fmt(i.monto)}</span></li>`).join('')}</ul>`;
+    return `<ul class="mov-list ${cls}">${items.map(i=>`<li style="${i.revisado?'background:var(--yellow-soft); border-radius:8px; padding:5px 6px; margin:0 -6px; border-bottom:none;':''}"><label class="chk-label" style="flex:1; gap:6px;"><input type="checkbox" ${i.revisado?'checked':''} onchange="toggleRevisado('${i.id}')"><span class="desc">${i.desc}${i.origen==='agregado'?' · agregado':''}</span></label><span class="amt" style="color:var(--red);">${fmt(i.monto)}</span></li>`).join('')}</ul>`;
   }
   return `<ul class="mov-list ${cls}">${items.map(i=>`<li><span class="desc">${i.desc}${i.origen==='agregado'?' · agregado':''}</span><span class="amt" style="color:${cls==='entradas'?'var(--green)':'var(--red)'}">${fmt(i.monto)}</span></li>`).join('')}</ul>`;
 }
@@ -577,7 +577,7 @@ function renderTop(){
   document.getElementById('kpiGrid').innerHTML = kpis.map(k=>`<div class="kpi ${k.cls}"><div class="label">${k.label}</div><div class="value">${k.value}</div><div class="hint">${k.hint}</div></div>`).join('');
 }
 
-function cicloBox(c, label, hint){
+function cicloBox(c, label, hint, key){
   const entradasMostradas = c.entTotal - c.extraccionTotal;
   const pct = entradasMostradas>0 ? Math.min(100,(c.salTotal/entradasMostradas)*100) : 0;
   const over = c.diff<0;
@@ -586,7 +586,7 @@ function cicloBox(c, label, hint){
     <div class="bar-labels"><span>Entradas ${fmt(entradasMostradas)}</span><span>Salidas ${fmt(c.salTotal)}</span></div>
     <div class="bar-track"><div class="bar-fill ${over?'over':''}" style="width:${pct}%"></div></div>
     <div class="diff-line"><span>Saldo: ${fmt(c.saldo)}</span><span class="diff-value ${over?'neg':'pos'}">${over?'':'+'}${fmt(c.diff)}</span></div>
-    <details>
+    <details data-key="${key}">
       <summary>Ver movimientos (${c.pendientes.length} entradas pendientes / ${c.salidas.length} salidas / ${c.extracciones.length} extracciones)</summary>
       <div class="two-col" style="gap:14px; margin-top:8px;">
         <div>
@@ -606,6 +606,7 @@ function cicloBox(c, label, hint){
 }
 
 function renderBolsillos(){
+  const openKeys = new Set(Array.from(document.querySelectorAll('#bolsillosGrid details[open]')).map(d=>d.dataset.key));
   document.getElementById('bolsillosGrid').innerHTML = STATE.bolsillos.map(b=>{
     const {actual, proyectado} = computeBolsillo(b);
     const over = actual.diff<0;
@@ -616,10 +617,11 @@ function renderBolsillos(){
     <div class="bolsillo-card">
       <div class="top-row"><div><h3>${b.name}</h3><div class="bolsillo-meta">${b.limite||''}</div></div><span class="tag ${over?'red':'green'}">${over?'Déficit':'Cubierto'}</span></div>
       <div class="bolsillo-meta">${fechaInfo}</div>
-      ${cicloBox(actual, 'Ciclo actual')}
-      ${tieneProy ? cicloBox(proyectado, 'Próximo ciclo', proyLabel) : ''}
+      ${cicloBox(actual, 'Ciclo actual', '', `${b.name}-actual`)}
+      ${tieneProy ? cicloBox(proyectado, 'Próximo ciclo', proyLabel, `${b.name}-proyectado`) : ''}
     </div>`;
   }).join('');
+  document.querySelectorAll('#bolsillosGrid details').forEach(d=>{ if(openKeys.has(d.dataset.key)) d.setAttribute('open',''); });
 }
 
 function renderGastosFijos(){
