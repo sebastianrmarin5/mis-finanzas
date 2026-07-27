@@ -379,6 +379,19 @@ async function checkAndCloseCycles(){
       }
     }
 
+    // El proyectado que arranca ahora queda vacío — lo sembramos de una con los mismos conceptos
+    // fijos, así "Próximo ciclo" no aparece en cero.
+    if(fijos.length){
+      const nuevosMovsProy = fijos.map(c=>{
+        const fields = {[F.mov.desc]:c.nombre, [F.mov.bolsillo]:b.name, [F.mov.tipo]:c.tipo, [F.mov.monto]:c.monto, [F.mov.origen]:'fijo', [F.mov.fecha]:new Date().toISOString().slice(0,10), [F.mov.ciclo]:'proyectado'};
+        if(c.tipo==='entrada') fields[F.mov.estado] = 'pendiente';
+        return {fields};
+      });
+      for(const chunk of chunkArray(nuevosMovsProy, 10)){
+        await callTool('create_records_for_table', {baseId:BASE_ID, tableId:T.mov, records:chunk});
+      }
+    }
+
     resumen.push(`✔ ${b.name}: nuevo ciclo desde ${fmtDate(b.cierreProy,{day:'numeric',month:'short'})}, saldo inicial ${fmt(nuevoSaldo)}${fijosAInsertar.length?`, ${fijosAInsertar.length} concepto(s) fijo(s) agregado(s)`:''}.`);
   }
   return resumen;
