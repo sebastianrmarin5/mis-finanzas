@@ -150,8 +150,8 @@
       <div class="tab-desc">Agrega un gasto o un ingreso. Si el dinero de una entrada ya está en el bolsillo, márcalo para que se sume al saldo de una vez.</div>
       <div class="sync-note">Esto escribe directo en tu base de Airtable — se ve igual desde el celular y cualquier computador donde abras este dashboard.</div>
       <form class="reg-form" id="regForm">
-        <div><label>Bolsillo</label><select id="f_bolsillo"><option value="TC_S">TC_S</option><option value="TC_D">TC_D</option><option value="TC_L">TC_L</option><option value="TC_S+">TC_S+</option></select></div>
-        <div><label>Tipo</label><select id="f_tipo"><option value="salida">Gasto (salida)</option><option value="entrada">Ingreso (entrada)</option><option value="extraccion">Extracción (sale del saldo)</option></select></div>
+        <div><label>Bolsillo</label><select id="f_bolsillo"><option value="TC_S">TC_S</option><option value="TC_L">TC_L</option><option value="TC_D">TC_D</option><option value="TC_S+">TC_S+</option></select></div>
+        <div><label>Tipo</label><select id="f_tipo"><option value="entrada">Ingreso (entrada)</option><option value="salida">Gasto (salida)</option><option value="extraccion">Extracción (sale del saldo)</option></select></div>
         <div><label>Monto (COP)</label><input type="number" id="f_monto" placeholder="Ej: 50000" min="1"></div>
         <div><label>Descripción</label><input type="text" id="f_desc" placeholder="Ej: gasolina"></div>
         <div><label>Ciclo</label><select id="f_ciclo"><option value="actual">Actual</option><option value="proyectado">Próximo</option></select></div>
@@ -176,6 +176,10 @@
           </div>
           <p class="empty-hint" id="servHint" style="margin-top:10px;"></p>
         </div>
+      </div>
+      <div class="subpanel" style="margin-top:15px;">
+        <div class="tab-title" style="font-size:13.5px; margin-bottom:12px;">Pagos fijos del mes</div>
+        <ul class="servicios-col" id="pagosFijosMes" style="list-style:none; margin:0; padding:0; font-size:12.5px;"></ul>
       </div>
     </div>
 
@@ -206,14 +210,15 @@
 // La obtenés en el dashboard de Cloudflare, algo como: https://mis-finanzas-api.tu-usuario.workers.dev
 const WORKER_URL = 'https://mis-finanzas-api.sebastianrmarin5.workers.dev/';
 const BASE_ID = 'applb9F664ngtZEWI';
-const T = { bols:'tblgJwqO9ZDHlrcyy', mov:'tblX4joy1nITOL9ds', lic:'tblbbNWqXtzu932t6', gf:'tblFHJZsnMz7Cc0Uf', sh:'tblRC543SvM5g5Rp2', cf:'tblIFZsh4KqlyowTl' };
+const T = { bols:'tblgJwqO9ZDHlrcyy', mov:'tblX4joy1nITOL9ds', lic:'tblbbNWqXtzu932t6', gf:'tblFHJZsnMz7Cc0Uf', sh:'tblRC543SvM5g5Rp2', cf:'tblIFZsh4KqlyowTl', pf:'tblowB3BW75nxKkRV' };
 const F = {
   bols:{name:'fldfvxJeUKt2MhmcX', limite:'fldstytU8vDJlp4iA', corteDia:'fldOEnwAVsaoMTOEY', pagoDia:'fldmLxXnhMytcJi3O', cierre:'fldMHxiAerS3STZNH', pago:'fldTYA0rhJqdTaQNR', saldo:'fldhXViPsP5HmoJwT', cierreProy:'fld99AO3GZkxaamaH', pagoProy:'fldb6Ret0r5Qe2HFM'},
-  mov:{desc:'fldJxn0cA8JdG1ye0', bolsillo:'fldVjcwwy1V474aen', tipo:'fldfYt60dqMb415KP', monto:'fld10zoVkHAIXaQbn', origen:'fldMJG2txgHmiZRAT', estado:'fldPNA6GQWh9sZ5yt', fecha:'fld4O9VeJkQjUvYVQ', ciclo:'fldAJjfvg4BloSuJK'},
+  mov:{desc:'fldJxn0cA8JdG1ye0', bolsillo:'fldVjcwwy1V474aen', tipo:'fldfYt60dqMb415KP', monto:'fld10zoVkHAIXaQbn', origen:'fldMJG2txgHmiZRAT', estado:'fldPNA6GQWh9sZ5yt', fecha:'fld4O9VeJkQjUvYVQ', ciclo:'fldAJjfvg4BloSuJK', revisado:'fldZP2pxjGHh6PhqH'},
   lic:{cliente:'fldfTBCv8vBppcZiP', diaPago:'fldK0ptMmYG9VqAxv', ventaBruta:'fld3Bx5gufioQkfE7', retencion:'fld3ijuH3WMN32Ip6', ventaNeta:'fldHGfqzC1F3cEckm', costo:'fldjI6rcC5t29K6NW', ganancia:'fldy8l3Jxmp6DCIla', pagado:'fldukNsXNp9YkC7lA', mesCheck:'fldprUlXBX57cD1jw'},
   gf:{cat:'fldiBWV9uHPZwOR0n', q15:'fldJPqgT0l3jOpy7u', q30:'fldViFblXjPocvV8O'},
   sh:{servicio:'fldYKOD2R3TXGT84c', grupo:'fldPh1CnuAk4c4GFh', valor:'fldP1RPWU3eAyLK4i', pagado:'fldInzK4ZVgPnItpn', mesCheck:'fldk5tSyYyyinpZoT'},
-  cf:{nombre:'fld0x3Bgp8hwVZMtj', bolsillo:'fldRrMDikBh3snHMy', tipo:'fld6K0rUyT8NzhxcY', monto:'fldPXcwW4GVb5S900', activo:'fldHL2JCnYAjXKm6G'}
+  cf:{nombre:'fld0x3Bgp8hwVZMtj', bolsillo:'fldRrMDikBh3snHMy', tipo:'fld6K0rUyT8NzhxcY', monto:'fldPXcwW4GVb5S900', activo:'fldHL2JCnYAjXKm6G'},
+  pf:{nombre:'fldra9poiHKC7WkFj', dia:'fldVnW3VDYZz7uFFd', valor:'fldUetClbra8t8fxS', pagado:'fldK3AId5IUDjIOLY'}
 };
 
 // PIN guardado en memoria durante la sesión (y en sessionStorage para no repetirlo si recargás la página,
@@ -271,21 +276,23 @@ function nextOccurrenceOfDay(day){
 let STATE = null; // { bolsillos:[], movimientos:[], licencias:[], gastosFijos:[], serviciosHogar:[] }
 
 async function loadAll(){
-  const [bolsRes, movRes, licRes, gfRes, shRes, cfRes] = await Promise.all([
+  const [bolsRes, movRes, licRes, gfRes, shRes, cfRes, pfRes] = await Promise.all([
     callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.bols}),
     callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.mov, pageSize:1000}),
     callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.lic}),
     callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.gf}),
     callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.sh}),
     callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.cf}),
+    callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.pf}),
   ]);
   STATE = {
     bolsillos: bolsRes.records.map(r=>({id:r.id, ...Object.fromEntries(Object.entries(F.bols).map(([k,fid])=>[k, r.cellValuesByFieldId[fid]]))})),
-    movimientos: movRes.records.map(r=>({id:r.id, desc:r.cellValuesByFieldId[F.mov.desc], bolsillo:r.cellValuesByFieldId[F.mov.bolsillo], tipo:selName(r.cellValuesByFieldId[F.mov.tipo]), monto:r.cellValuesByFieldId[F.mov.monto]||0, origen:selName(r.cellValuesByFieldId[F.mov.origen]), estado:selName(r.cellValuesByFieldId[F.mov.estado]), ciclo:selName(r.cellValuesByFieldId[F.mov.ciclo])||'actual', creado:r.createdTime||''})).sort((a,b)=>(a.creado||'').localeCompare(b.creado||'')),
+    movimientos: movRes.records.map(r=>({id:r.id, desc:r.cellValuesByFieldId[F.mov.desc], bolsillo:r.cellValuesByFieldId[F.mov.bolsillo], tipo:selName(r.cellValuesByFieldId[F.mov.tipo]), monto:r.cellValuesByFieldId[F.mov.monto]||0, origen:selName(r.cellValuesByFieldId[F.mov.origen]), estado:selName(r.cellValuesByFieldId[F.mov.estado]), ciclo:selName(r.cellValuesByFieldId[F.mov.ciclo])||'actual', revisado:!!r.cellValuesByFieldId[F.mov.revisado], creado:r.createdTime||''})).sort((a,b)=>(a.creado||'').localeCompare(b.creado||'')),
     licencias: licRes.records.map(r=>({id:r.id, cliente:r.cellValuesByFieldId[F.lic.cliente], diaPago:r.cellValuesByFieldId[F.lic.diaPago], ventaBruta:r.cellValuesByFieldId[F.lic.ventaBruta]||0, retencion:r.cellValuesByFieldId[F.lic.retencion]||0, ventaNeta:r.cellValuesByFieldId[F.lic.ventaNeta]||0, costo:r.cellValuesByFieldId[F.lic.costo]||0, ganancia:r.cellValuesByFieldId[F.lic.ganancia]||0, pagado:!!r.cellValuesByFieldId[F.lic.pagado], mesCheck:r.cellValuesByFieldId[F.lic.mesCheck]||''})),
     gastosFijos: gfRes.records.map(r=>({id:r.id, cat:r.cellValuesByFieldId[F.gf.cat], q15:r.cellValuesByFieldId[F.gf.q15]||0, q30:r.cellValuesByFieldId[F.gf.q30]||0})),
     serviciosHogar: shRes.records.map(r=>({id:r.id, servicio:r.cellValuesByFieldId[F.sh.servicio], grupo:selName(r.cellValuesByFieldId[F.sh.grupo]), valor:r.cellValuesByFieldId[F.sh.valor]||0, pagado:!!r.cellValuesByFieldId[F.sh.pagado]})),
     conceptosFijos: cfRes.records.map(r=>({id:r.id, nombre:r.cellValuesByFieldId[F.cf.nombre], bolsillo:r.cellValuesByFieldId[F.cf.bolsillo], tipo:selName(r.cellValuesByFieldId[F.cf.tipo]), monto:r.cellValuesByFieldId[F.cf.monto]||0, activo:!!r.cellValuesByFieldId[F.cf.activo]})),
+    pagosFijosMes: pfRes.records.map(r=>({id:r.id, nombre:r.cellValuesByFieldId[F.pf.nombre], dia:r.cellValuesByFieldId[F.pf.dia]||0, valor:r.cellValuesByFieldId[F.pf.valor]||0, pagado:!!r.cellValuesByFieldId[F.pf.pagado]})),
   };
   const BOLSILLO_ORDER = ['TC_S','TC_L','TC_D','TC_S+'];
   STATE.bolsillos.sort((a,b)=>BOLSILLO_ORDER.indexOf(a.name)-BOLSILLO_ORDER.indexOf(b.name));
@@ -467,6 +474,23 @@ async function toggleServicioPagado(recId){
     renderAll();
   });
 }
+async function updatePagoFijoValor(recId, value){
+  const monto = parseFloat(value);
+  if(isNaN(monto) || monto<0) return;
+  await withBusy(async ()=>{
+    await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.pf, records:[{id:recId, fields:{[F.pf.valor]:monto}}]});
+    const p = STATE.pagosFijosMes.find(x=>x.id===recId);
+    if(p) p.valor = monto;
+  });
+}
+async function togglePagoFijo(recId){
+  await withBusy(async ()=>{
+    const p = STATE.pagosFijosMes.find(x=>x.id===recId);
+    await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.pf, records:[{id:recId, fields:{[F.pf.pagado]: !p.pagado}}]});
+    p.pagado = !p.pagado;
+    renderAll();
+  });
+}
 async function updateGastoFijo(recId, fieldKey, value){
   const monto = parseFloat(value);
   if(isNaN(monto) || monto<0) return;
@@ -515,7 +539,19 @@ document.getElementById('regForm').addEventListener('submit', function(e){
 /* ============ RENDER ============ */
 function movList(items, cls){
   if(!items.length) return `<p class="empty-hint">Sin movimientos.</p>`;
+  if(cls==='salidas'){
+    return `<ul class="mov-list ${cls}">${items.map(i=>`<li><label class="chk-label" style="flex:1; gap:6px;"><input type="checkbox" ${i.revisado?'checked':''} onchange="toggleRevisado('${i.id}')"><span class="desc" style="${i.revisado?'text-decoration:line-through; opacity:.55;':''}">${i.desc}${i.origen==='agregado'?' · agregado':''}</span></label><span class="amt" style="color:var(--red); ${i.revisado?'text-decoration:line-through; opacity:.55;':''}">${fmt(i.monto)}</span></li>`).join('')}</ul>`;
+  }
   return `<ul class="mov-list ${cls}">${items.map(i=>`<li><span class="desc">${i.desc}${i.origen==='agregado'?' · agregado':''}</span><span class="amt" style="color:${cls==='entradas'?'var(--green)':'var(--red)'}">${fmt(i.monto)}</span></li>`).join('')}</ul>`;
+}
+async function toggleRevisado(movId){
+  const m = STATE.movimientos.find(x=>x.id===movId);
+  if(!m) return;
+  await withBusy(async ()=>{
+    await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.mov, records:[{id:movId, fields:{[F.mov.revisado]: !m.revisado}}]});
+    m.revisado = !m.revisado;
+    renderAll();
+  });
 }
 
 function renderTop(){
@@ -531,6 +567,7 @@ function renderTop(){
   const conFecha = comps.filter(x=>x.b.pago).sort((a,b)=>daysUntil(a.b.pago)-daysUntil(b.b.pago));
   const minDias = conFecha.length ? daysUntil(conFecha[0].b.pago) : null;
   const proxGroup = conFecha.filter(x=>daysUntil(x.b.pago)===minDias);
+  const resto = conFecha.filter(x=>daysUntil(x.b.pago)!==minDias);
   const proxValue = proxGroup.length
     ? proxGroup.map(x=>`<span style="color:${x.c.diff<0?'#ff8080':'#6ee7b7'}">${x.b.name}</span>`).join(' · ') + ` · ${minDias}d`
     : '—';
@@ -540,6 +577,10 @@ function renderTop(){
     {label:"Total en bolsillos", value:fmt(totalBolsillos), hint:"Suma del saldo débito de los 4 bolsillos", cls:""},
     {label:"Próximo pago", value:proxValue, hint:proxHint, cls:""}
   ];
+  if(resto.length){
+    const lineas = resto.map(x=>`<div style="font-size:14px; font-weight:700; margin-top:5px; color:${x.c.diff<0?'#ff8080':'#6ee7b7'}">${x.b.name} <span style="color:#8f8fa3; font-weight:600;">· ${fmtDate(x.b.pago,{day:'numeric',month:'short'})} · ${daysUntil(x.b.pago)}d</span></div>`).join('');
+    kpis.push({label:"Otros pagos", value:lineas, hint:"", cls:""});
+  }
   document.getElementById('kpiGrid').innerHTML = kpis.map(k=>`<div class="kpi ${k.cls}"><div class="label">${k.label}</div><div class="value">${k.value}</div><div class="hint">${k.hint}</div></div>`).join('');
 }
 
@@ -624,6 +665,33 @@ function renderGastosFijos(){
   if(servHint) servHint.innerHTML = `Total actual de servicios (sin contar los que ya marcaste como pagados): <span id="total-servicios">${fmt(totalServicios)}</span>. Si cambia, ajusta manualmente la fila "Servicios" de la izquierda para repartirlo entre las quincenas.`;
 }
 
+function renderPagosFijosMes(){
+  const box = document.getElementById('pagosFijosMes');
+  if(!box) return;
+  const items = [...STATE.pagosFijosMes].sort((a,b)=>a.dia-b.dia);
+  const filas = items.map(p=>{
+    const pagado = p.pagado;
+    return `<li style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #e7e8ee; ${pagado?'background:var(--green-soft); border-radius:8px; padding:5px 6px; margin:0 -6px; border-bottom:none;':''}">
+      <label class="chk-label" style="flex:1; gap:6px;">
+        <input type="checkbox" ${pagado?'checked':''} onchange="togglePagoFijo('${p.id}')">
+        <span style="${pagado?'color:var(--green); font-weight:700;':''}">${p.nombre} <span class="bolsillo-meta" style="font-weight:600;">· día ${p.dia}</span></span>
+      </label>
+      <input class="inline-num pf-input" data-paid="${pagado?'1':'0'}" type="number" value="${p.valor}" oninput="recalcPagosFijos()" onchange="updatePagoFijoValor('${p.id}',this.value)">
+    </li>`;
+  }).join('');
+  const total = items.filter(p=>!p.pagado).reduce((s,p)=>s+p.valor,0);
+  box.innerHTML = filas + `<li class="tot" style="display:flex; justify-content:space-between; padding-top:6px;"><span>Total pendiente</span><span id="total-pagos-fijos">${fmt(total)}</span></li>`;
+}
+function recalcPagosFijos(){
+  let total = 0;
+  document.querySelectorAll('.pf-input').forEach(el=>{
+    if(el.dataset.paid==='1') return;
+    total += parseFloat(el.value)||0;
+  });
+  const box = document.getElementById('total-pagos-fijos');
+  if(box) box.textContent = fmt(total);
+}
+
 function recalcGastosFijos(){
   let q15=0, q30=0;
   document.querySelectorAll('#gastosFijosTable .gf-row').forEach(row=>{
@@ -697,7 +765,7 @@ function renderHistorial(){
 }
 
 function renderAll(){
-  renderTop(); renderBolsillos(); renderGastosFijos(); renderLicencias(); renderHistorial();
+  renderTop(); renderBolsillos(); renderGastosFijos(); renderLicencias(); renderHistorial(); renderPagosFijosMes();
 }
 
 async function startApp(){
