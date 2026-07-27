@@ -633,7 +633,13 @@ function renderGastosFijos(){
   rows += `<tr><td style="color:var(--muted); font-size:11px;">Subtotal gastos fijos</td><td class="num" style="color:var(--muted); font-size:11px;" id="gf-subtotal-q15">${fmt(subtotal.q15)}</td><td class="num" style="color:var(--muted); font-size:11px;" id="gf-subtotal-q30">${fmt(subtotal.q30)}</td></tr>`;
   if(sueldo){
     rows += `<tr class="sueldo-row"><td>Sueldo</td><td class="num" id="gf-sueldo-q15" data-value="${sueldo.q15}">${fmt(sueldo.q15)}</td><td class="num" id="gf-sueldo-q30" data-value="${sueldo.q30}">${fmt(sueldo.q30)}</td></tr>`;
-    rows += `<tr class="restante-row"><td>Restante (ganancia)</td><td class="num" id="gf-restante-q15">${fmt(sueldo.q15-subtotal.q15)}</td><td class="num" id="gf-restante-q30">${fmt(sueldo.q30-subtotal.q30)}</td></tr>`;
+    const restanteQ15 = sueldo.q15-subtotal.q15;
+    const restanteQ30 = sueldo.q30-subtotal.q30;
+    const bgQ15 = restanteQ15<0 ? 'var(--red-soft)' : 'var(--green-soft)';
+    const colorQ15 = restanteQ15<0 ? 'var(--red)' : 'var(--green)';
+    const bgQ30 = restanteQ30<0 ? 'var(--red-soft)' : 'var(--green-soft)';
+    const colorQ30 = restanteQ30<0 ? 'var(--red)' : 'var(--green)';
+    rows += `<tr class="restante-row"><td style="background:${bgQ15}; color:${colorQ15}; border-top-color:${colorQ15};">Restante</td><td class="num" id="gf-restante-q15" style="background:${bgQ15}; color:${colorQ15}; border-top-color:${colorQ15};">${fmt(restanteQ15)}</td><td class="num" id="gf-restante-q30" style="background:${bgQ30}; color:${colorQ30}; border-top-color:${colorQ30};">${fmt(restanteQ30)}</td></tr>`;
   }
   document.getElementById('gastosFijosTable').innerHTML = `<thead><tr><th>Categoría</th><th class="num">Quincena 15</th><th class="num">Quincena 30</th></tr></thead><tbody>${rows}</tbody>`;
 
@@ -669,7 +675,7 @@ function renderPagosFijosMes(){
         <input type="checkbox" ${pagado?'checked':''} onchange="togglePagoFijo('${p.id}')">
         <span style="${pagado?'color:var(--green); font-weight:700;':''}">${p.nombre} <span class="bolsillo-meta" style="font-weight:600;">· día ${p.dia}</span></span>
       </label>
-      <input class="inline-num" type="number" value="${p.valor}" disabled>
+      <span class="inline-num" style="display:inline-block; border:none; background:transparent;">${fmt(p.valor)}</span>
     </li>`;
   }).join('');
   const total = items.filter(p=>!p.pagado).reduce((s,p)=>s+p.valor,0);
@@ -692,8 +698,18 @@ function recalcGastosFijos(){
   const sueldoQ30el = document.getElementById('gf-sueldo-q30');
   const restanteQ15box = document.getElementById('gf-restante-q15');
   const restanteQ30box = document.getElementById('gf-restante-q30');
-  if(sueldoQ15el && restanteQ15box) restanteQ15box.textContent = fmt((parseFloat(sueldoQ15el.dataset.value)||0) - q15);
-  if(sueldoQ30el && restanteQ30box) restanteQ30box.textContent = fmt((parseFloat(sueldoQ30el.dataset.value)||0) - q30);
+  if(sueldoQ15el && restanteQ15box){
+    const r = (parseFloat(sueldoQ15el.dataset.value)||0) - q15;
+    restanteQ15box.textContent = fmt(r);
+    restanteQ15box.style.color = r<0 ? 'var(--red)' : 'var(--green)';
+    restanteQ15box.style.background = r<0 ? 'var(--red-soft)' : 'var(--green-soft)';
+  }
+  if(sueldoQ30el && restanteQ30box){
+    const r = (parseFloat(sueldoQ30el.dataset.value)||0) - q30;
+    restanteQ30box.textContent = fmt(r);
+    restanteQ30box.style.color = r<0 ? 'var(--red)' : 'var(--green)';
+    restanteQ30box.style.background = r<0 ? 'var(--red-soft)' : 'var(--green-soft)';
+  }
 }
 
 function recalcServicios(){
