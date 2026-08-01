@@ -220,7 +220,7 @@ const F = {
   gf:{cat:'fldiBWV9uHPZwOR0n', q15:'fldJPqgT0l3jOpy7u', q30:'fldViFblXjPocvV8O'},
   sh:{servicio:'fldYKOD2R3TXGT84c', grupo:'fldPh1CnuAk4c4GFh', valor:'fldP1RPWU3eAyLK4i', pagado:'fldInzK4ZVgPnItpn', mesCheck:'fldk5tSyYyyinpZoT'},
   cf:{nombre:'fld0x3Bgp8hwVZMtj', bolsillo:'fldRrMDikBh3snHMy', tipo:'fld6K0rUyT8NzhxcY', monto:'fldPXcwW4GVb5S900', activo:'fldHL2JCnYAjXKm6G'},
-  pf:{nombre:'fldra9poiHKC7WkFj', dia:'fldVnW3VDYZz7uFFd', valor:'fldUetClbra8t8fxS', pagado:'fldK3AId5IUDjIOLY'}
+  pf:{nombre:'fldra9poiHKC7WkFj', dia:'fldVnW3VDYZz7uFFd', valor:'fldUetClbra8t8fxS', pagado:'fldK3AId5IUDjIOLY', mesCheck:'fldN835ItLDYqPjbX'}
 };
 
 // PIN guardado en memoria durante la sesión (y en sessionStorage para no repetirlo si recargás la página,
@@ -292,9 +292,9 @@ async function loadAll(){
     movimientos: movRes.records.map(r=>({id:r.id, desc:r.cellValuesByFieldId[F.mov.desc], bolsillo:r.cellValuesByFieldId[F.mov.bolsillo], tipo:selName(r.cellValuesByFieldId[F.mov.tipo]), monto:r.cellValuesByFieldId[F.mov.monto]||0, origen:selName(r.cellValuesByFieldId[F.mov.origen]), estado:selName(r.cellValuesByFieldId[F.mov.estado]), ciclo:selName(r.cellValuesByFieldId[F.mov.ciclo])||'actual', revisado:!!r.cellValuesByFieldId[F.mov.revisado], creado:r.createdTime||''})).sort((a,b)=>(a.creado||'').localeCompare(b.creado||'')),
     licencias: licRes.records.map(r=>({id:r.id, cliente:r.cellValuesByFieldId[F.lic.cliente], diaPago:r.cellValuesByFieldId[F.lic.diaPago], ventaBruta:r.cellValuesByFieldId[F.lic.ventaBruta]||0, retencion:r.cellValuesByFieldId[F.lic.retencion]||0, ventaNeta:r.cellValuesByFieldId[F.lic.ventaNeta]||0, costo:r.cellValuesByFieldId[F.lic.costo]||0, ganancia:r.cellValuesByFieldId[F.lic.ganancia]||0, pagado:!!r.cellValuesByFieldId[F.lic.pagado], mesCheck:r.cellValuesByFieldId[F.lic.mesCheck]||''})),
     gastosFijos: gfRes.records.map(r=>({id:r.id, cat:r.cellValuesByFieldId[F.gf.cat], q15:r.cellValuesByFieldId[F.gf.q15]||0, q30:r.cellValuesByFieldId[F.gf.q30]||0})),
-    serviciosHogar: shRes.records.map(r=>({id:r.id, servicio:r.cellValuesByFieldId[F.sh.servicio], grupo:selName(r.cellValuesByFieldId[F.sh.grupo]), valor:r.cellValuesByFieldId[F.sh.valor]||0, pagado:!!r.cellValuesByFieldId[F.sh.pagado]})),
+    serviciosHogar: shRes.records.map(r=>({id:r.id, servicio:r.cellValuesByFieldId[F.sh.servicio], grupo:selName(r.cellValuesByFieldId[F.sh.grupo]), valor:r.cellValuesByFieldId[F.sh.valor]||0, pagado:!!r.cellValuesByFieldId[F.sh.pagado], mesCheck:r.cellValuesByFieldId[F.sh.mesCheck]||''})),
     conceptosFijos: cfRes.records.map(r=>({id:r.id, nombre:r.cellValuesByFieldId[F.cf.nombre], bolsillo:r.cellValuesByFieldId[F.cf.bolsillo], tipo:selName(r.cellValuesByFieldId[F.cf.tipo]), monto:r.cellValuesByFieldId[F.cf.monto]||0, activo:!!r.cellValuesByFieldId[F.cf.activo]})),
-    pagosFijosMes: pfRes.records.map(r=>({id:r.id, nombre:r.cellValuesByFieldId[F.pf.nombre], dia:r.cellValuesByFieldId[F.pf.dia]||0, valor:r.cellValuesByFieldId[F.pf.valor]||0, pagado:!!r.cellValuesByFieldId[F.pf.pagado]})),
+    pagosFijosMes: pfRes.records.map(r=>({id:r.id, nombre:r.cellValuesByFieldId[F.pf.nombre], dia:r.cellValuesByFieldId[F.pf.dia]||0, valor:r.cellValuesByFieldId[F.pf.valor]||0, pagado:!!r.cellValuesByFieldId[F.pf.pagado], mesCheck:r.cellValuesByFieldId[F.pf.mesCheck]||''})),
   };
   const BOLSILLO_ORDER = ['TC_S','TC_L','TC_D','TC_S+'];
   STATE.bolsillos.sort((a,b)=>BOLSILLO_ORDER.indexOf(a.name)-BOLSILLO_ORDER.indexOf(b.name));
@@ -471,16 +471,30 @@ async function updateServicioValor(recId, value){
 async function toggleServicioPagado(recId){
   await withBusy(async ()=>{
     const s = STATE.serviciosHogar.find(x=>x.id===recId);
-    await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.sh, records:[{id:recId, fields:{[F.sh.pagado]: !s.pagado}}]});
-    s.pagado = !s.pagado;
+    const mk = monthKey();
+    const isPaidNow = s.pagado && s.mesCheck===mk;
+    if(isPaidNow){
+      await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.sh, records:[{id:recId, fields:{[F.sh.pagado]:false}}]});
+      s.pagado = false;
+    } else {
+      await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.sh, records:[{id:recId, fields:{[F.sh.pagado]:true, [F.sh.mesCheck]:mk}}]});
+      s.pagado = true; s.mesCheck = mk;
+    }
     renderAll();
   });
 }
 async function togglePagoFijo(recId){
   await withBusy(async ()=>{
     const p = STATE.pagosFijosMes.find(x=>x.id===recId);
-    await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.pf, records:[{id:recId, fields:{[F.pf.pagado]: !p.pagado}}]});
-    p.pagado = !p.pagado;
+    const mk = monthKey();
+    const isPaidNow = p.pagado && p.mesCheck===mk;
+    if(isPaidNow){
+      await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.pf, records:[{id:recId, fields:{[F.pf.pagado]:false}}]});
+      p.pagado = false;
+    } else {
+      await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.pf, records:[{id:recId, fields:{[F.pf.pagado]:true, [F.pf.mesCheck]:mk}}]});
+      p.pagado = true; p.mesCheck = mk;
+    }
     renderAll();
   });
 }
@@ -647,7 +661,7 @@ function renderGastosFijos(){
 
   const casa = STATE.serviciosHogar.filter(s=>s.grupo==='casa');
   const padres = STATE.serviciosHogar.filter(s=>s.grupo==='padres');
-  const estaPagado = s => s.pagado;
+  const estaPagado = s => s.pagado && s.mesCheck===monthKey();
   const svcInput = (s) => {
     const pagado = estaPagado(s);
     return `<li style="${pagado?'background:var(--green-soft); border-radius:8px; padding:4px 6px; margin:0 -6px;':''}">
@@ -669,9 +683,10 @@ function renderGastosFijos(){
 function renderPagosFijosMes(){
   const box = document.getElementById('pagosFijosMes');
   if(!box) return;
+  const mk = monthKey();
   const items = [...STATE.pagosFijosMes].sort((a,b)=>a.dia-b.dia);
   const filas = items.map(p=>{
-    const pagado = p.pagado;
+    const pagado = p.pagado && p.mesCheck===mk;
     return `<li style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #e7e8ee; ${pagado?'background:var(--green-soft); border-radius:8px; padding:5px 6px; margin:0 -6px; border-bottom:none;':''}">
       <label class="chk-label" style="flex:1; gap:6px;">
         <input type="checkbox" ${pagado?'checked':''} onchange="togglePagoFijo('${p.id}')">
@@ -680,7 +695,7 @@ function renderPagosFijosMes(){
       <span class="inline-num" style="display:inline-block; border:none; background:transparent;">${fmt(p.valor)}</span>
     </li>`;
   }).join('');
-  const total = items.filter(p=>!p.pagado).reduce((s,p)=>s+p.valor,0);
+  const total = items.filter(p=>!(p.pagado && p.mesCheck===mk)).reduce((s,p)=>s+p.valor,0);
   box.innerHTML = filas + `<li class="tot" style="display:flex; justify-content:space-between; padding-top:6px;"><span>Total pendiente</span><span id="total-pagos-fijos">${fmt(total)}</span></li>`;
 }
 
