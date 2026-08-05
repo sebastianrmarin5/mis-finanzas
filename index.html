@@ -567,8 +567,12 @@ function renderTop(){
   const urgentes = comps.filter(x=>x.b.pago && x.c.diff<0).sort((a,b)=>daysUntil(a.b.pago)-daysUntil(b.b.pago));
   const alertBox = document.getElementById('alertBox');
   if(urgentes.length){
-    const u = urgentes[0]; const dias = daysUntil(u.b.pago);
-    alertBox.innerHTML = `<div class="alert"><strong>${u.b.name} necesita ${fmt(Math.abs(u.c.diff))}</strong> antes del pago del ${fmtDate(u.b.pago,{day:'numeric',month:'long'})} (en ${dias} días).</div>`;
+    const dias = daysUntil(urgentes[0].b.pago);
+    const grupo = urgentes.filter(x=>daysUntil(x.b.pago)===dias);
+    const totalNecesario = grupo.reduce((s,x)=>s+Math.abs(x.c.diff),0);
+    const nombres = grupo.map(x=>x.b.name).join(' + ');
+    const verbo = grupo.length>1 ? 'necesitan' : 'necesita';
+    alertBox.innerHTML = `<div class="alert"><strong>${nombres} ${verbo} ${fmt(totalNecesario)}</strong> antes del pago del ${fmtDate(urgentes[0].b.pago,{day:'numeric',month:'long'})} (en ${dias} días).</div>`;
   } else alertBox.innerHTML = "";
 
   const conFecha = comps.filter(x=>x.b.pago).sort((a,b)=>daysUntil(a.b.pago)-daysUntil(b.b.pago));
