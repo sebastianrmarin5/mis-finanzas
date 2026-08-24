@@ -126,6 +126,7 @@
   <h1>Todo tu dinero, en un solo lugar.</h1>
   <div class="sub">Sincronizado con Airtable — se ve igual en todos tus dispositivos.</div>
   <div class="status-badge" id="statusBadge">Cargando…</div>
+  <button type="button" class="status-badge" id="refreshBtn" style="cursor:pointer; margin-left:6px;" onclick="startApp(true)">↻ Actualizar</button>
 </div>
 
 <div id="globalError"></div>
@@ -430,7 +431,7 @@ document.getElementById('sideNav').addEventListener('click', function(e){
 */
 async function withBusy(fn){
   document.getElementById('statusBadge').textContent = 'Guardando…';
-  try{ await fn(); document.getElementById('statusBadge').textContent = 'Sincronizado · ' + new Date().toLocaleTimeString('es-CO'); }
+  try{ await fn(); saveCache(); document.getElementById('statusBadge').textContent = 'Sincronizado · ' + new Date().toLocaleTimeString('es-CO'); }
   catch(err){ document.getElementById('statusBadge').textContent = 'Error al guardar'; document.getElementById('statusBadge').classList.add('err'); document.getElementById('globalError').innerHTML = `<div class="alert"><strong>No se pudo guardar:</strong> ${err.message}</div>`; }
 }
 
@@ -789,16 +790,45 @@ function renderAll(){
   renderTop(); renderBolsillos(); renderGastosFijos(); renderLicencias(); renderHistorial(); renderPagosFijosMes();
 }
 
-async function startApp(){
+/* ============ CACHÉ LOCAL ============
+   Guarda una copia de STATE en localStorage para no volver a pedir las 7 tablas
+   cada vez que se abre la página. Si la copia tiene menos de CACHE_TTL_MS, se usa
+   directo (0 llamadas a Airtable). Si es más vieja, se pide todo fresco.
+*/
+const CACHE_KEY = 'mf_cache_v1';
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutos
+
+function saveCache(){
+  try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ state: STATE, ts: Date.now() })); }
+  catch{ /* si falla (ej. localStorage lleno o bloqueado), no pasa nada grave */ }
+}
+function loadCache(){
   try{
-    await loadAll();
+    const raw = localStorage.getItem(CACHE_KEY);
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    if(!parsed || !parsed.state || !parsed.ts) return null;
+    return parsed;
+  }catch{ return null; }
+}
+
+async function startApp(forceRefresh){
+  try{
+    const cached = forceRefresh ? null : loadCache();
+    const fresca = cached && (Date.now() - cached.ts) < CACHE_TTL_MS;
+    if(fresca){
+      STATE = cached.state;
+    } else {
+      await loadAll();
+      saveCache();
+    }
     const resumenCierre = await checkAndCloseCycles();
-    if(resumenCierre.length) await loadAll();
+    if(resumenCierre.length){ await loadAll(); saveCache(); }
     renderAll();
     if(resumenCierre.length){
       document.getElementById('cycleNotice').innerHTML = `<div class="sync-note">${resumenCierre.join('<br>')}</div>`;
     }
-    document.getElementById('statusBadge').textContent = 'Sincronizado · ' + new Date().toLocaleTimeString('es-CO');
+    document.getElementById('statusBadge').textContent = (fresca ? 'Cargado del caché · ' : 'Sincronizado · ') + new Date().toLocaleTimeString('es-CO');
   }catch(err){
     document.getElementById('statusBadge').textContent = 'Error al cargar';
     document.getElementById('statusBadge').classList.add('err');
