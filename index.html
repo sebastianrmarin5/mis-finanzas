@@ -218,7 +218,7 @@ const F = {
   bols:{name:'fldfvxJeUKt2MhmcX', limite:'fldstytU8vDJlp4iA', corteDia:'fldOEnwAVsaoMTOEY', pagoDia:'fldmLxXnhMytcJi3O', cierre:'fldMHxiAerS3STZNH', pago:'fldTYA0rhJqdTaQNR', saldo:'fldhXViPsP5HmoJwT', cierreProy:'fld99AO3GZkxaamaH', pagoProy:'fldb6Ret0r5Qe2HFM'},
   mov:{desc:'fldJxn0cA8JdG1ye0', bolsillo:'fldVjcwwy1V474aen', tipo:'fldfYt60dqMb415KP', monto:'fld10zoVkHAIXaQbn', origen:'fldMJG2txgHmiZRAT', estado:'fldPNA6GQWh9sZ5yt', fecha:'fld4O9VeJkQjUvYVQ', ciclo:'fldAJjfvg4BloSuJK', revisado:'fldZP2pxjGHh6PhqH'},
   lic:{cliente:'fldfTBCv8vBppcZiP', diaPago:'fldK0ptMmYG9VqAxv', ventaBruta:'fld3Bx5gufioQkfE7', retencion:'fld3ijuH3WMN32Ip6', ventaNeta:'fldHGfqzC1F3cEckm', costo:'fldjI6rcC5t29K6NW', ganancia:'fldy8l3Jxmp6DCIla', pagado:'fldukNsXNp9YkC7lA', mesCheck:'fldprUlXBX57cD1jw'},
-  gf:{cat:'fldiBWV9uHPZwOR0n', q15:'fldJPqgT0l3jOpy7u', q30:'fldViFblXjPocvV8O'},
+  gf:{cat:'fldiBWV9uHPZwOR0n', q15:'fldJPqgT0l3jOpy7u', q30:'fldViFblXjPocvV8O', revisado:'fld5ukNr7GDHolh41'},
   sh:{servicio:'fldYKOD2R3TXGT84c', grupo:'fldPh1CnuAk4c4GFh', valor:'fldP1RPWU3eAyLK4i', pagado:'fldInzK4ZVgPnItpn', mesCheck:'fldk5tSyYyyinpZoT'},
   cf:{nombre:'fld0x3Bgp8hwVZMtj', bolsillo:'fldRrMDikBh3snHMy', tipo:'fld6K0rUyT8NzhxcY', monto:'fldPXcwW4GVb5S900', activo:'fldHL2JCnYAjXKm6G'},
   pf:{nombre:'fldra9poiHKC7WkFj', dia:'fldVnW3VDYZz7uFFd', valor:'fldUetClbra8t8fxS', pagado:'fldK3AId5IUDjIOLY', mesCheck:'fldN835ItLDYqPjbX'}
@@ -292,7 +292,7 @@ async function loadAll(){
     bolsillos: bolsRes.records.map(r=>({id:r.id, ...Object.fromEntries(Object.entries(F.bols).map(([k,fid])=>[k, r.cellValuesByFieldId[fid]]))})),
     movimientos: movRes.records.map(r=>({id:r.id, desc:r.cellValuesByFieldId[F.mov.desc], bolsillo:r.cellValuesByFieldId[F.mov.bolsillo], tipo:selName(r.cellValuesByFieldId[F.mov.tipo]), monto:r.cellValuesByFieldId[F.mov.monto]||0, origen:selName(r.cellValuesByFieldId[F.mov.origen]), estado:selName(r.cellValuesByFieldId[F.mov.estado]), ciclo:selName(r.cellValuesByFieldId[F.mov.ciclo])||'actual', revisado:!!r.cellValuesByFieldId[F.mov.revisado], creado:r.createdTime||''})).sort((a,b)=>(a.creado||'').localeCompare(b.creado||'')),
     licencias: licRes.records.map(r=>({id:r.id, cliente:r.cellValuesByFieldId[F.lic.cliente], diaPago:r.cellValuesByFieldId[F.lic.diaPago], ventaBruta:r.cellValuesByFieldId[F.lic.ventaBruta]||0, retencion:r.cellValuesByFieldId[F.lic.retencion]||0, ventaNeta:r.cellValuesByFieldId[F.lic.ventaNeta]||0, costo:r.cellValuesByFieldId[F.lic.costo]||0, ganancia:r.cellValuesByFieldId[F.lic.ganancia]||0, pagado:!!r.cellValuesByFieldId[F.lic.pagado], mesCheck:r.cellValuesByFieldId[F.lic.mesCheck]||''})),
-    gastosFijos: gfRes.records.map(r=>({id:r.id, cat:r.cellValuesByFieldId[F.gf.cat], q15:r.cellValuesByFieldId[F.gf.q15]||0, q30:r.cellValuesByFieldId[F.gf.q30]||0})),
+    gastosFijos: gfRes.records.map(r=>({id:r.id, cat:r.cellValuesByFieldId[F.gf.cat], q15:r.cellValuesByFieldId[F.gf.q15]||0, q30:r.cellValuesByFieldId[F.gf.q30]||0, revisado:!!r.cellValuesByFieldId[F.gf.revisado]})),
     serviciosHogar: shRes.records.map(r=>({id:r.id, servicio:r.cellValuesByFieldId[F.sh.servicio], grupo:selName(r.cellValuesByFieldId[F.sh.grupo]), valor:r.cellValuesByFieldId[F.sh.valor]||0, pagado:!!r.cellValuesByFieldId[F.sh.pagado], mesCheck:r.cellValuesByFieldId[F.sh.mesCheck]||''})),
     conceptosFijos: cfRes.records.map(r=>({id:r.id, nombre:r.cellValuesByFieldId[F.cf.nombre], bolsillo:r.cellValuesByFieldId[F.cf.bolsillo], tipo:selName(r.cellValuesByFieldId[F.cf.tipo]), monto:r.cellValuesByFieldId[F.cf.monto]||0, activo:!!r.cellValuesByFieldId[F.cf.activo]})),
     pagosFijosMes: pfRes.records.map(r=>({id:r.id, nombre:r.cellValuesByFieldId[F.pf.nombre], dia:r.cellValuesByFieldId[F.pf.dia]||0, valor:r.cellValuesByFieldId[F.pf.valor]||0, pagado:!!r.cellValuesByFieldId[F.pf.pagado], mesCheck:r.cellValuesByFieldId[F.pf.mesCheck]||''})),
@@ -561,6 +561,15 @@ async function toggleRevisado(movId){
     renderAll();
   });
 }
+async function toggleGastoFijoRevisado(recId){
+  const g = STATE.gastosFijos.find(x=>x.id===recId);
+  if(!g) return;
+  await withBusy(async ()=>{
+    await callTool('update_records_for_table', {baseId:BASE_ID, tableId:T.gf, records:[{id:recId, fields:{[F.gf.revisado]: !g.revisado}}]});
+    g.revisado = !g.revisado;
+    renderAll();
+  });
+}
 
 function renderTop(){
   const comps = STATE.bolsillos.map(b=>({b,c:computeBolsillo(b).actual}));
@@ -650,7 +659,7 @@ function renderGastosFijos(){
   const numInput = (rec,fieldKey,val) => `<input class="inline-num gf-input" data-col="${fieldKey}" type="number" value="${val}" oninput="recalcGastosFijos()" onchange="updateGastoFijo('${rec}','${fieldKey}',this.value)">`;
   const staticCell = (fieldKey,val) => `<span class="gf-static" data-col="${fieldKey}" data-value="${val}">${fmt(val)}</span>`;
   const isEditable = c => c.cat==='Servicios';
-  let rows = cats.map(c=>`<tr class="gf-row"><td>${c.cat}</td><td class="num">${isEditable(c)?numInput(c.id,'q15',c.q15):staticCell('q15',c.q15)}</td><td class="num">${isEditable(c)?numInput(c.id,'q30',c.q30):staticCell('q30',c.q30)}</td></tr>`).join('');
+  let rows = cats.map(c=>`<tr class="gf-row" style="${c.revisado?'background:var(--yellow-soft);':''}"><td><label class="chk-label" style="gap:6px;"><input type="checkbox" ${c.revisado?'checked':''} onchange="toggleGastoFijoRevisado('${c.id}')"><span>${c.cat}</span></label></td><td class="num">${isEditable(c)?numInput(c.id,'q15',c.q15):staticCell('q15',c.q15)}</td><td class="num">${isEditable(c)?numInput(c.id,'q30',c.q30):staticCell('q30',c.q30)}</td></tr>`).join('');
   rows += `<tr><td style="color:var(--muted); font-size:11px;">Subtotal gastos fijos</td><td class="num" style="color:var(--muted); font-size:11px;" id="gf-subtotal-q15">${fmt(subtotal.q15)}</td><td class="num" style="color:var(--muted); font-size:11px;" id="gf-subtotal-q30">${fmt(subtotal.q30)}</td></tr>`;
   if(sueldo){
     rows += `<tr class="sueldo-row"><td>Sueldo</td><td class="num" id="gf-sueldo-q15" data-value="${sueldo.q15}">${fmt(sueldo.q15)}</td><td class="num" id="gf-sueldo-q30" data-value="${sueldo.q30}">${fmt(sueldo.q30)}</td></tr>`;
