@@ -352,13 +352,15 @@ async function checkAndCloseCycles(){
     const actualMovs = STATE.movimientos.filter(m=>m.bolsillo===b.name && m.ciclo==='actual');
     const proyMovs = STATE.movimientos.filter(m=>m.bolsillo===b.name && m.ciclo==='proyectado');
     const yaEnSaldo = proyMovs.filter(m=>m.tipo==='entrada' && m.estado==='en_saldo');
-    const aPromover = proyMovs.filter(m=>!(m.tipo==='entrada' && m.estado==='en_saldo'));
+    const yaAplicadas = proyMovs.filter(m=>m.tipo==='extraccion');
+    const aPromover = proyMovs.filter(m=>!(m.tipo==='entrada' && m.estado==='en_saldo') && m.tipo!=='extraccion');
     const nuevoSaldo = computeCiclo(proyMovs, 0).saldo;
     const tag = cycleMonthTag(b.pago);
 
     const updates = [
       ...actualMovs.map(m=>({id:m.id, fields:{[F.mov.ciclo]: tag}})),
       ...yaEnSaldo.map(m=>({id:m.id, fields:{[F.mov.ciclo]: tag}})),
+      ...yaAplicadas.map(m=>({id:m.id, fields:{[F.mov.ciclo]: tag}})),
       ...aPromover.map(m=>({id:m.id, fields:{[F.mov.ciclo]: 'actual'}})),
     ];
     for(const chunk of chunkArray(updates, 10)){
