@@ -365,14 +365,17 @@ function nextOccurrenceOfDay(day){
 
 let STATE = null; // { bolsillos:[], movimientos:[], licencias:[], gastosFijos:[], serviciosHogar:[] }
 
-async function loadAll(){
+// completo=false: no vuelve a pedir Licencias ni ConceptosFijos (casi no cambian) y reutiliza los de `previo`.
+async function loadAll(completo = true, previo = null){
+  const vacio = Promise.resolve({records:[]});
+  const reusar = !completo && previo;
   const [bolsRes, movRes, licRes, gfRes, shRes, cfRes, pfRes] = await Promise.all([
     callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.bols}),
     callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.mov, pageSize:1000}),
-    callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.lic}),
+    reusar ? vacio : callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.lic}),
     callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.gf}),
     callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.sh}),
-    callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.cf}),
+    reusar ? vacio : callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.cf}),
     callTool('list_records_for_table', {baseId:BASE_ID, tableId:T.pf}),
   ]);
   STATE = {
@@ -384,6 +387,8 @@ async function loadAll(){
     conceptosFijos: cfRes.records.map(r=>({id:r.id, nombre:r.cellValuesByFieldId[F.cf.nombre], bolsillo:r.cellValuesByFieldId[F.cf.bolsillo], tipo:selName(r.cellValuesByFieldId[F.cf.tipo]), monto:r.cellValuesByFieldId[F.cf.monto]||0, activo:!!r.cellValuesByFieldId[F.cf.activo]})),
     pagosFijosMes: pfRes.records.map(r=>({id:r.id, nombre:r.cellValuesByFieldId[F.pf.nombre], dia:r.cellValuesByFieldId[F.pf.dia]||0, valor:r.cellValuesByFieldId[F.pf.valor]||0, pagado:!!r.cellValuesByFieldId[F.pf.pagado], mesCheck:r.cellValuesByFieldId[F.pf.mesCheck]||''})),
   };
+  if(reusar){ STATE.licencias = previo.licencias || []; STATE.conceptosFijos = previo.conceptosFijos || []; }
+  else { LENTA_TS = Date.now(); }
   const BOLSILLO_ORDER = ['TC_S','TC_L','TC_D','TC_S+'];
   STATE.bolsillos.sort((a,b)=>BOLSILLO_ORDER.indexOf(a.name)-BOLSILLO_ORDER.indexOf(b.name));
 }
@@ -941,10 +946,12 @@ function renderAll(){
    directo (0 llamadas a Airtable). Si es más vieja, se pide todo fresco.
 */
 const CACHE_KEY = 'mf_cache_v1';
-const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutos
+const CACHE_TTL_MS = 60 * 60 * 1000;        // 1 hora: dentro de este tiempo se abre sin llamar a Airtable
+const LENTAS_TTL_MS = 6 * 60 * 60 * 1000;   // Licencias y ConceptosFijos se piden como máximo cada 6 horas
+let LENTA_TS = 0;                            // cuándo se pidieron por última vez esas dos tablas
 
 function saveCache(){
-  try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ state: STATE, ts: Date.now() })); }
+  try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ state: STATE, ts: Date.now(), tsLenta: LENTA_TS })); }
   catch{ /* si falla (ej. localStorage lleno o bloqueado), no pasa nada grave */ }
 }
 function loadCache(){
@@ -963,8 +970,12 @@ async function startApp(forceRefresh){
     const fresca = cached && (Date.now() - cached.ts) < CACHE_TTL_MS;
     if(fresca){
       STATE = cached.state;
+      LENTA_TS = cached.tsLenta || 0;
     } else {
-      await loadAll();
+      const previo = loadCache();   // se usa también en "Actualizar" solo para conservar la hora de las tablas lentas
+      const lentasVigentes = !forceRefresh && previo && previo.tsLenta && (Date.now() - previo.tsLenta) < LENTAS_TTL_MS;
+      if(lentasVigentes){ LENTA_TS = previo.tsLenta; await loadAll(false, previo.state); }  // 5 llamadas
+      else { await loadAll(true); }                                                          // 7 llamadas
       saveCache();
     }
     const resumenCierre = await checkAndCloseCycles();
